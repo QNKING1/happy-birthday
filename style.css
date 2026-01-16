@@ -1,0 +1,572 @@
+/* --- Global & Reset --- */
+@import url('https://fonts.googleapis.com/css?family=Amethysta|Caesar+Dressing|Dancing+Script:wght@400;700|Outfit:wght@200;400|Lato:300italic&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: #131b21;
+    color: #fff;
+    font-family: 'Outfit', sans-serif;
+    overflow: hidden;
+    /* Prevent scrolling for SPA feel */
+    height: 100vh;
+    width: 100vw;
+}
+
+#app {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.scene {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 1s ease-in-out, visibility 1s;
+    z-index: 10;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.scene.active {
+    opacity: 1;
+    visibility: visible;
+    z-index: 20;
+    pointer-events: auto;
+}
+
+/* --- Global Elements --- */
+#bg-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.music-control {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    color: #fff;
+    transition: all 0.3s ease;
+}
+
+.music-control:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* --- Scene 1: Intro (Flower) --- */
+#scene-intro {
+    background: transparent;
+    /* Let global bg show */
+}
+
+/* Container for SVG to ensure it centers nicely */
+.flower-container {
+    width: 80%;
+    max-width: 600px;
+    height: 80vh;
+}
+
+svg#flower-frame {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+/* Flower Styles from original style.css */
+#Footer_group_1_,
+[id^="PinkFlowerGroup"],
+[id^="BaseGroup"] path,
+[id^="LeafGroup"] path,
+path[id^="Stroke"],
+g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
+#Bud8_1_,
+#Bud10_1_,
+#Bud23_1_,
+#Bud26_1_,
+[id^="Dots"],
+[id^="Flourish"] {
+    visibility: visible;
+}
+
+.happy {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    z-index: 30;
+    opacity: 1;
+    /* Was 0, fixed to make start button visible */
+    transition: opacity 0.5s;
+}
+
+.happy h1 {
+    font-size: 2.5em;
+    font-family: "Amethysta", serif;
+    line-height: 1.4em;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    margin-bottom: 20px;
+}
+
+.happy span {
+    font-family: "Caesar Dressing", cursive;
+    font-size: 3em;
+    color: #fff;
+    /* Changed from black to white for dark theme */
+    display: block;
+}
+
+.btn-start {
+    padding: 15px 40px;
+    font-size: 1.5rem;
+    font-family: "Amethysta", serif;
+    background: #ff4757;
+    color: #fff;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    z-index: 9999;
+    position: relative;
+    /* Ensure z-index applies */
+    box-shadow: 0 0 20px rgba(255, 71, 87, 0.5);
+}
+
+.btn-start:hover {
+    background: #ff6b81;
+    box-shadow: 0 0 30px rgba(255, 71, 87, 0.8);
+    transform: scale(1.05);
+}
+
+.next-chapter-btn {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 30px;
+    background: rgba(255, 71, 87, 0.1);
+    /* Subtle transparent red */
+    color: #ff4757;
+    border: 1px solid #ff4757;
+    border-radius: 30px;
+    cursor: pointer;
+    font-family: 'Amethysta', serif;
+    /* Matching font */
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+    transition: all 0.5s ease;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 9999;
+    box-shadow: 0 0 10px rgba(255, 71, 87, 0.2);
+    backdrop-filter: blur(5px);
+}
+
+.next-chapter-btn:hover {
+    background: #ff4757;
+    color: white;
+    box-shadow: 0 0 20px rgba(255, 71, 87, 0.6);
+    transform: translateX(-50%) translateY(-3px);
+}
+
+.next-chapter-btn.visible {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    display: block !important;
+    animation: fadeInBtn 1s ease-out forwards;
+}
+
+@keyframes fadeInBtn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+/* --- Scene 2: Memory Cloud --- */
+#scene-memory {
+    /* Three.js canvas container */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.memory-ui {
+    position: absolute;
+    bottom: 50px;
+    text-align: center;
+    z-index: 30;
+    width: 100%;
+    /* Ensure centering works */
+}
+
+.memory-btn {
+    padding: 12px 30px;
+    background: #ff4757;
+    border: none;
+    color: #fff;
+    border-radius: 30px;
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.1rem;
+    transition: 0.3s;
+    z-index: 9999;
+    position: relative;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.memory-btn:hover {
+    background: #ff6b81;
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(255, 71, 87, 0.4);
+}
+
+/* --- Scene 3: The Letter --- */
+#scene-letter {
+    background: transparent;
+}
+
+/* Keep original envelope styles but scope or adapt colors if needed */
+.envelope-container {
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.5s ease;
+    z-index: 35;
+}
+
+.envelope-container:hover {
+    transform: scale(1.02);
+}
+
+.envelope {
+    width: min(300px, 90vw);
+    height: min(200px, 60vw);
+    background-color: #c94c4c;
+    /* Keep original red */
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    /* Stronger shadow for dark mode */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.flap {
+    position: absolute;
+    top: 0;
+    width: 0;
+    height: 0;
+    border-left: min(150px, 45vw) solid transparent;
+    border-right: min(150px, 45vw) solid transparent;
+    border-top: min(110px, 33vw) solid #e05e5e;
+    transform-origin: top;
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 3;
+}
+
+.envelope.open .flap {
+    transform: rotateX(180deg);
+    z-index: 1;
+}
+
+.letter {
+    position: absolute;
+    top: 10px;
+    left: 5%;
+    width: 90%;
+    height: 100px;
+    /* Smaller initial height */
+    background-color: white;
+    color: #333;
+    padding: 20px 15px;
+    /* More padding */
+    transition: all 0.8s ease 0.4s;
+    transform: translateY(0);
+    z-index: 1;
+    opacity: 0;
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+    overflow: hidden;
+    border-radius: 5px;
+}
+
+.envelope.open .letter {
+    /* Fixed position to ensure it centers on screen regardless of parent */
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+
+    /* Dimensions */
+    width: 90% !important;
+    max-width: 400px !important;
+    height: auto !important;
+    min-height: 300px;
+    max-height: 80vh !important;
+
+    /* Visuals */
+    background: white !important;
+    z-index: 10000 !important;
+    opacity: 1 !important;
+    border-radius: 10px !important;
+    box-shadow: 0 0 0 100vh rgba(0, 0, 0, 0.6) !important;
+    /* Dim background */
+
+    /* Reset margins/padding */
+    margin: 0 !important;
+
+    /* Layout */
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 30px !important;
+
+    transition: opacity 0.5s ease !important;
+}
+
+/* Remove separate rule to avoid conflicts */
+/* .envelope.open .letter { ... } */
+
+/* Ensure content centering */
+.letter .text-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.text-content {
+    font-family: 'Dancing Script', cursive;
+    font-size: 1.2rem;
+    line-height: 1.6;
+    margin-top: 10px;
+    text-align: left;
+}
+
+#make-wish-btn {
+    margin-top: 20px;
+    padding: 12px 30px;
+    background: #ff4757;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    z-index: 9999;
+    display: none;
+    /* Shown by JS */
+    box-shadow: 0 4px 15px rgba(255, 71, 87, 0.4);
+}
+
+#make-wish-btn:hover {
+    background: #ff6b81;
+    transform: scale(1.05);
+}
+
+/* --- Scene 4: Finale (Cake) --- */
+#scene-finale {
+    background: #252432;
+    /* Match cake.html background */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Container for SVG to ensure it centers nicely */
+.cake-container {
+    position: relative;
+    width: 200px;
+    /* Exact width of the SVG */
+    height: 500px;
+    /* Exact height of the SVG */
+    display: flex;
+    justify-content: center;
+    /* This ensures candle absolute position is relative to THIS box */
+}
+
+/* The SVG itself */
+#cake {
+    display: block;
+    width: 100%;
+    height: 100%;
+    /* Reset margins so it sits flush in the container */
+    margin: 0;
+}
+
+/* The Candle */
+.candle {
+    background: #ffffff;
+    border-radius: 10px;
+    position: absolute;
+    /* 1. Reset standard centering */
+    top: 0;
+    left: 50%;
+    margin-left: -2.5px;
+    /* Half of width (5px) to center */
+
+    /* 2. Manual vertical align to sit on top of the cake SVG */
+    margin-top: 375px;
+
+    width: 5px;
+    height: 35px;
+    z-index: 50;
+    cursor: pointer;
+
+    /* 3. Hide it initially (shifted up) */
+    transform: translateY(-300px);
+    opacity: 0;
+}
+
+/* Class to trigger the drop animation via JS */
+.candle.drop-in {
+    animation: dropInCandle 1s ease-out forwards;
+    opacity: 1;
+}
+
+
+
+@keyframes dropInCandle {
+    0% {
+        transform: translateY(-300px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* The Flame */
+.fire {
+    border-radius: 100%;
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    margin-left: -3.33px;
+    width: 6.66px;
+    height: 18px;
+}
+
+.fire:nth-child(1) {
+    animation: fire 2s 0.5s infinite;
+}
+
+.fire:nth-child(2) {
+    animation: fire 1.5s 0.5s infinite;
+}
+
+.fire:nth-child(3) {
+    animation: fire 1s 0.5s infinite;
+}
+
+.fire:nth-child(4) {
+    animation: fire 0.5s 0.5s infinite;
+}
+
+.fire:nth-child(5) {
+    animation: fire 0.2s 0.5s infinite;
+}
+
+@keyframes fire {
+
+    0%,
+    100% {
+        background: rgba(254, 248, 97, 0.5);
+        box-shadow: 0 0 40px 10px rgba(248, 233, 209, 0.2);
+        transform: translateY(0) scale(1);
+    }
+
+    50% {
+        background: rgba(255, 50, 0, 0.1);
+        box-shadow: 0 0 40px 20px rgba(248, 233, 209, 0.2);
+        transform: translateY(-20px) scale(0);
+    }
+}
+
+.candle.out .fire {
+    display: none;
+}
+
+.finale-text {
+    position: absolute;
+    top: 20%;
+    width: 100%;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 1s;
+    pointer-events: none;
+}
+
+.finale-text.visible {
+    opacity: 1;
+    animation: glow 2s ease-in-out infinite alternate;
+}
+
+.finale-text h1 {
+    font-family: 'Amethysta', serif;
+    font-size: 3rem;
+    color: #ffd700;
+    text-shadow: 0 0 10px #ffae34;
+}
+
+@keyframes glow {
+    from {
+        text-shadow: 0 0 10px #fff, 0 0 20px #ffae34;
+    }
+
+    to {
+        text-shadow: 0 0 20px #fff, 0 0 30px #ffae34, 0 0 40px #ffae34;
+    }
+}
+
+/* Confetti */
+.confetti-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 100;
+}
+
