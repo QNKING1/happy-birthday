@@ -617,21 +617,53 @@
 
         <!-- SCENE 3: THE LETTER -->
         <div id="scene-letter" class="scene">
-            <div class="envelope-container" id="envelopeContainer">
-                <div class="envelope">
-                    <div class="flap"></div>
-                    <div class="heart">❤</div>
-                    <div class="letter">
-                        <h1>My Dearest,</h1>
-                        <div class="text-content">
-                            <!-- Typed.js will fill this, fallback text below -->
-                            <p>Wishing you a day filled with laughter, love, and starlight.</p>
-                            <p>You are special not just today, but every day.</p>
+            <div class="envelope-scene-wrapper">
+                <!-- Navigation Button (Back to Memory) -->
+                <button class="back-button" id="back-to-memory-btn" title="Back to Memories">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+
+                <!-- 3D Envelope Container -->
+                <div class="envelope-container" id="envelopeContainer">
+                    <div class="envelope-3d" id="envelope3D">
+                        <!-- Envelope Front Face -->
+                        <div class="envelope-front">
+                            <div class="envelope-front-face">
+                                <div class="envelope-decoration">
+                                    <div class="heart-seal">❤</div>
+                                </div>
+                            </div>
                         </div>
-                        <button id="make-wish-btn" class="memory-btn">Make a Wish <i class="fas fa-star"></i></button>
+                        
+                        <!-- Envelope Top Flap (3D Triangle) -->
+                        <div class="envelope-flap" id="envelopeFlap">
+                            <div class="flap-front"></div>
+                            <div class="flap-back"></div>
+                        </div>
+                        
+                        <!-- Letter Inside Envelope -->
+                        <div class="letter-wrapper" id="letterWrapper">
+                            <div class="letter" id="letterContent">
+                                <div class="letter-header">
+                                    <h1>My Dearest,</h1>
+                                </div>
+                                <div class="letter-body">
+                                    <div class="text-content" id="textContent">
+                                        <!-- Typed.js will fill this -->
+                                    </div>
+                                </div>
+                                <div class="letter-footer">
+                                    <button id="make-wish-btn" class="memory-btn">Make a Wish <i class="fas fa-star"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Instruction Text -->
+                    <div class="envelope-instruction" id="envelopeInstruction">
+                        <p>Click to open the envelope</p>
                     </div>
                 </div>
-                <div class="instruction">Tap envelope to open</div>
             </div>
         </div>
 
