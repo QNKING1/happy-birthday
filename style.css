@@ -15,12 +15,23 @@ body {
     /* Prevent scrolling for SPA feel */
     height: 100vh;
     width: 100vw;
+    position: fixed;
+    top: 0;
+    left: 0;
+}
+
+html,
+body {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 #app {
     position: relative;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
 }
 
 .scene {
@@ -84,19 +95,317 @@ body {
 #scene-intro {
     background: transparent;
     /* Let global bg show */
+    position: relative;
+    overflow: hidden;
 }
+
+/* ===== CINEMATIC EFFECTS ===== */
+
+/* God Rays Overlay - Diagonal Light Beam */
+.god-rays-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 248, 240, 0.15) 25%,
+            rgba(255, 255, 255, 0) 50%,
+            rgba(255, 248, 240, 0.1) 75%,
+            rgba(255, 255, 255, 0) 100%);
+    pointer-events: none;
+    z-index: 5;
+    animation: godRaysBreath 6s ease-in-out infinite;
+    mix-blend-mode: screen;
+}
+
+@keyframes godRaysBreath {
+    0% {
+        opacity: 0.1;
+    }
+
+    50% {
+        opacity: 0.3;
+    }
+
+    100% {
+        opacity: 0.1;
+    }
+}
+
+/* Blurred Foreground Leaves - Depth of Field Effect */
+.blurred-leaf {
+    position: fixed;
+    pointer-events: none;
+    z-index: 25;
+    filter: blur(15px);
+    opacity: 0.4;
+    mix-blend-mode: multiply;
+    border-radius: 50%;
+}
+
+#leaf-tl {
+    top: -20%;
+    left: -15%;
+    width: 30vw;
+    height: 30vw;
+    max-width: 400px;
+    max-height: 400px;
+    background: radial-gradient(circle at 30% 30%, rgba(76, 175, 80, 0.6), rgba(76, 175, 80, 0.1));
+}
+
+#leaf-tr {
+    top: -10%;
+    right: -10%;
+    width: 35vw;
+    height: 35vw;
+    max-width: 450px;
+    max-height: 450px;
+    background: radial-gradient(circle at 40% 40%, rgba(100, 193, 187, 0.5), rgba(100, 193, 187, 0.05));
+}
+
+#leaf-br {
+    bottom: -15%;
+    right: -5%;
+    width: 28vw;
+    height: 28vw;
+    max-width: 380px;
+    max-height: 380px;
+    background: radial-gradient(circle at 60% 60%, rgba(76, 175, 80, 0.55), rgba(76, 175, 80, 0.1));
+}
+
+/* Background "Bokehs" - Soft Glowing Circles */
+.cinema-bg-bokeh {
+    position: fixed;
+    pointer-events: none;
+    z-index: 2;
+    border-radius: 50%;
+    filter: blur(40px);
+    opacity: 0.25;
+    mix-blend-mode: screen;
+}
+
+#bokeh-1 {
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(255, 215, 0, 0.6), rgba(255, 215, 0, 0));
+    top: 10%;
+    left: 15%;
+    animation: bokehDrift1 15s ease-in-out infinite;
+}
+
+#bokeh-2 {
+    width: 150px;
+    height: 150px;
+    background: radial-gradient(circle, rgba(135, 206, 250, 0.5), rgba(135, 206, 250, 0));
+    top: 20%;
+    right: 10%;
+    animation: bokehDrift2 18s ease-in-out infinite;
+}
+
+#bokeh-3 {
+    width: 180px;
+    height: 180px;
+    background: radial-gradient(circle, rgba(255, 160, 122, 0.5), rgba(255, 160, 122, 0));
+    bottom: 15%;
+    left: 20%;
+    animation: bokehDrift3 20s ease-in-out infinite;
+}
+
+#bokeh-4 {
+    width: 160px;
+    height: 160px;
+    background: radial-gradient(circle, rgba(221, 160, 221, 0.4), rgba(221, 160, 221, 0));
+    bottom: 10%;
+    right: 15%;
+    animation: bokehDrift4 17s ease-in-out infinite;
+}
+
+@keyframes bokehDrift1 {
+
+    0%,
+    100% {
+        transform: translate(0, 0);
+    }
+
+    25% {
+        transform: translate(30px, -40px);
+    }
+
+    50% {
+        transform: translate(-20px, 30px);
+    }
+
+    75% {
+        transform: translate(40px, 20px);
+    }
+}
+
+@keyframes bokehDrift2 {
+
+    0%,
+    100% {
+        transform: translate(0, 0);
+    }
+
+    25% {
+        transform: translate(-35px, 25px);
+    }
+
+    50% {
+        transform: translate(25px, -35px);
+    }
+
+    75% {
+        transform: translate(-30px, -20px);
+    }
+}
+
+@keyframes bokehDrift3 {
+
+    0%,
+    100% {
+        transform: translate(0, 0);
+    }
+
+    25% {
+        transform: translate(25px, 35px);
+    }
+
+    50% {
+        transform: translate(-30px, -25px);
+    }
+
+    75% {
+        transform: translate(35px, -30px);
+    }
+}
+
+@keyframes bokehDrift4 {
+
+    0%,
+    100% {
+        transform: translate(0, 0);
+    }
+
+    25% {
+        transform: translate(-40px, -25px);
+    }
+
+    50% {
+        transform: translate(30px, 35px);
+    }
+
+    75% {
+        transform: translate(-25px, 30px);
+    }
+}
+
+/* ===== Subtle Environmental Details ===== */
+
+/* Fireflies (tiny glowing orbs that twinkle) */
+.fireflies {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 16;
+    /* slightly in front of mid-ground */
+}
+
+.firefly {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, rgba(255, 255, 180, 1) 0%, rgba(170, 255, 170, 0.9) 55%, rgba(0, 0, 0, 0) 100%);
+    box-shadow: 0 0 14px rgba(255, 240, 180, 0.9);
+    filter: blur(0.8px);
+    opacity: 0.8;
+    transform: translate3d(0, 0, 0);
+    will-change: transform, opacity;
+}
+
+/* Dust motes that brighten when inside god rays */
+.dust-motes {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 3;
+    /* behind mid-ground */
+    filter: blur(0.6px);
+}
+
+.dust-mote {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 1);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+    opacity: 0.02;
+    will-change: transform, opacity;
+}
+
+/* Falling petals */
+.petal-layer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 24;
+    /* in front of flower but behind UI */
+}
+
+.petal {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    will-change: transform, opacity;
+    pointer-events: none;
+    opacity: 0.95;
+    transform-origin: center;
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.15));
+}
+
+/* Subtle vignette to focus center */
+.vignette-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 22;
+    /* below leaves (.blurred-leaf z-index:25) and UI (.happy z-index:30) */
+    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.45) 100%);
+    mix-blend-mode: multiply;
+    opacity: 0.6;
+    transition: opacity 0.6s ease;
+}
+
 
 /* Container for SVG to ensure it centers nicely */
 .flower-container {
-    width: 80%;
+    width: 90vw;
     max-width: 600px;
-    height: 80vh;
+    height: 90vh;
+    max-height: 600px;
 }
 
 svg#flower-frame {
     width: 100%;
     height: 100%;
     overflow: visible;
+    display: block;
 }
 
 /* Flower Styles from original style.css */
@@ -128,7 +437,7 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
 }
 
 .happy h1 {
-    font-size: 2.5em;
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
     font-family: "Amethysta", serif;
     line-height: 1.4em;
     text-transform: uppercase;
@@ -138,15 +447,15 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
 
 .happy span {
     font-family: "Caesar Dressing", cursive;
-    font-size: 3em;
+    font-size: clamp(2rem, 5vw, 3rem);
     color: #fff;
     /* Changed from black to white for dark theme */
     display: block;
 }
 
 .btn-start {
-    padding: 15px 40px;
-    font-size: 1.5rem;
+    padding: clamp(12px, 3vw, 15px) clamp(30px, 5vw, 40px);
+    font-size: clamp(1rem, 2.5vw, 1.5rem);
     font-family: "Amethysta", serif;
     background: #ff4757;
     color: #fff;
@@ -160,6 +469,10 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     position: relative;
     /* Ensure z-index applies */
     box-shadow: 0 0 20px rgba(255, 71, 87, 0.5);
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn-start:hover {
@@ -170,10 +483,10 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
 
 .next-chapter-btn {
     position: absolute;
-    bottom: 30px;
+    bottom: clamp(20px, 5vw, 30px);
     left: 50%;
     transform: translateX(-50%);
-    padding: 12px 30px;
+    padding: clamp(10px, 2vw, 12px) clamp(25px, 4vw, 30px);
     background: rgba(255, 71, 87, 0.1);
     /* Subtle transparent red */
     color: #ff4757;
@@ -182,7 +495,7 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     cursor: pointer;
     font-family: 'Amethysta', serif;
     /* Matching font */
-    font-size: 1.1rem;
+    font-size: clamp(0.9rem, 2vw, 1.1rem);
     letter-spacing: 1px;
     transition: all 0.5s ease;
     opacity: 0;
@@ -190,6 +503,10 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     z-index: 9999;
     box-shadow: 0 0 10px rgba(255, 71, 87, 0.2);
     backdrop-filter: blur(5px);
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .next-chapter-btn:hover {
@@ -238,18 +555,22 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
 }
 
 .memory-btn {
-    padding: 12px 30px;
+    padding: clamp(10px, 2vw, 12px) clamp(25px, 4vw, 30px);
     background: #ff4757;
     border: none;
     color: #fff;
     border-radius: 30px;
     cursor: pointer;
     font-family: 'Outfit', sans-serif;
-    font-size: 1.1rem;
+    font-size: clamp(0.95rem, 2vw, 1.1rem);
     transition: 0.3s;
     z-index: 9999;
     position: relative;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .memory-btn:hover {
@@ -294,11 +615,12 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
 /* 3D Envelope Main Container */
 .envelope-3d {
     position: relative;
-    width: min(320px, 85vw);
-    height: min(220px, 65vw);
+    width: min(320px, 80vw);
+    height: min(220px, 60vw);
     transform-style: preserve-3d;
     transition: transform 0.3s ease;
     animation: envelopeIdlePulse 3s ease-in-out infinite;
+    max-width: 320px;
 }
 
 @keyframes envelopeIdlePulse {
@@ -353,6 +675,10 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     font-size: 2.5rem;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     animation: heartBeat 2s ease-in-out infinite;
+    z-index: 15;
+    /* Ensure it stays above flap initially */
+    position: relative;
+    /* Ensure z-index works */
 }
 
 @keyframes heartBeat {
@@ -423,16 +749,17 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     position: fixed;
     top: 50%;
     left: 50%;
-    width: 90%;
+    width: 95vw;
     max-width: 500px;
     height: auto;
-    max-height: 80vh;
+    max-height: 85vh;
     z-index: 100;
     opacity: 0;
     visibility: hidden;
     transform: translate(-50%, -50%) scale(0.3) translateY(100px);
     transition: opacity 0.5s ease, visibility 0.5s ease;
     pointer-events: none;
+    padding: 10px;
 }
 
 /* Ensure back button stays above letter */
@@ -448,38 +775,52 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
 }
 
 /* Letter Content */
+/* Enhanced Realistic Paper */
 .letter {
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, #fefdf8 0%, #faf8f3 100%);
+    background: #fdfaf3;
+    /* Notebook Blue Lines */
+    background-image:
+        linear-gradient(rgba(180, 210, 230, 0.4) 1px, transparent 1px);
+    background-size: 100% 1.8rem;
+    /* Line spacing matches writing */
+    line-height: 1.8rem;
+    padding: 60px 40px 40px 60px !important;
+    /* Left margin for the red line */
+    box-shadow: 5px 5px 20px rgba(0, 0, 0, 0.2), inset 0 0 80px rgba(232, 195, 151, 0.2);
+    border: 1px solid #d4b896;
+    position: relative;
+    font-family: 'Dancing Script', cursive;
     color: #2c2c2c;
-    padding: 40px 35px;
-    border-radius: 8px;
-    box-shadow:
-        0 20px 60px rgba(0, 0, 0, 0.5),
-        inset 0 1px 2px rgba(255, 255, 255, 0.8);
     display: flex;
     flex-direction: column;
-    text-align: center;
+    text-align: left;
+    /* Changed to left for natural writing feel */
     overflow-y: auto;
-    border: 3px solid #e8c397;
-    position: relative;
+    overflow-x: hidden;
+    /* Prevent horizontal scrollbar */
+    max-height: 80vh;
 }
 
-/* Custom scrollbar for letter */
-.letter::-webkit-scrollbar {
-    width: 8px;
+/* Red Margin Line (Left side) */
+.letter::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 45px;
+    width: 2px;
+    height: 100%;
+    background: rgba(255, 100, 100, 0.2);
+    z-index: 1;
+    pointer-events: none;
 }
 
-.letter::-webkit-scrollbar-track {
-    background: rgba(232, 195, 151, 0.1);
-    border-radius: 4px;
-}
-
-.letter::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #e8c397 0%, #d4b896 100%);
-    border-radius: 4px;
-    box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.1);
+/* Typed Cursor - Making it look like a Pen tip */
+.typed-cursor {
+    color: #34495e;
+    font-size: 1.2rem;
+    vertical-align: middle;
 }
 
 .letter::-webkit-scrollbar-thumb:hover {
@@ -516,7 +857,7 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
 
 .letter-header h1 {
     font-family: 'Dancing Script', cursive;
-    font-size: 2rem;
+    font-size: clamp(1.3rem, 4vw, 2rem);
     font-weight: 700;
     color: #8b5a3c;
     text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5);
@@ -528,18 +869,22 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     display: flex;
     flex-direction: column;
     justify-content: center;
-    margin-bottom: 30px;
+    margin-bottom: clamp(20px, 5vw, 30px);
     position: relative;
     z-index: 1;
+    min-height: 250px;
+    /* Fix jumpy text layout */
 }
 
 .text-content {
     font-family: 'Dancing Script', cursive;
-    font-size: 1.1rem;
+    font-size: clamp(0.95rem, 2.5vw, 1.1rem);
     font-weight: 400;
-    line-height: 2;
+    line-height: 1.8;
     color: #3a3a3a;
     letter-spacing: 0.5px;
+    min-height: 250px;
+    /* Fix jumpy text layout */
 }
 
 .text-content p {
@@ -660,13 +1005,9 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     }
 }
 
-margin-top: 10px;
-text-align: left;
-}
-
 #make-wish-btn {
-    margin-top: 20px;
-    padding: 12px 30px;
+    margin-top: clamp(15px, 3vw, 20px);
+    padding: clamp(10px, 2vw, 12px) clamp(25px, 4vw, 30px);
     background: #ff4757;
     color: white;
     border: none;
@@ -677,6 +1018,8 @@ text-align: left;
     display: none;
     /* Shown by JS */
     box-shadow: 0 4px 15px rgba(255, 71, 87, 0.4);
+    min-height: 44px;
+    font-size: clamp(0.95rem, 2vw, 1rem);
 }
 
 #make-wish-btn:hover {
@@ -696,13 +1039,14 @@ text-align: left;
 /* Container for SVG to ensure it centers nicely */
 .cake-container {
     position: relative;
-    width: 200px;
-    /* Exact width of the SVG */
-    height: 500px;
-    /* Exact height of the SVG */
+    width: min(200px, 80vw);
+    /* Responsive width */
+    height: auto;
+    aspect-ratio: 2/5;
     display: flex;
     justify-content: center;
     /* This ensures candle absolute position is relative to THIS box */
+    max-width: 200px;
 }
 
 /* The SVG itself */
@@ -826,7 +1170,7 @@ text-align: left;
 
 .finale-text h1 {
     font-family: 'Amethysta', serif;
-    font-size: 3rem;
+    font-size: clamp(2rem, 5vw, 3rem);
     color: #ffd700;
     text-shadow: 0 0 10px #ffae34;
 }
@@ -931,5 +1275,45 @@ text-align: left;
         font-size: 1rem;
         top: 15px;
         left: 15px;
+    }
+
+    .letter::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .envelope-instruction p {
+        font-size: 0.75rem;
+    }
+}
+
+@media (max-width: 320px) {
+    .happy h1 {
+        font-size: 1.2rem;
+        margin-bottom: 10px;
+    }
+
+    .happy span {
+        font-size: 1.5rem;
+    }
+
+    .text-content {
+        font-size: 0.85rem;
+        line-height: 1.6;
+    }
+
+    .letter {
+        padding: 15px 10px;
+    }
+}
+
+@media (min-width: 769px) and (max-height: 600px) {
+
+    /* Landscape mode adjustments */
+    .flower-container {
+        max-height: 80vh;
+    }
+
+    .letter {
+        max-height: 85vh;
     }
 }
