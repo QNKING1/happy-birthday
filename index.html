@@ -28,6 +28,32 @@
 
         <!-- SCENE 1: INTRO (Flower) -->
         <div id="scene-intro" class="scene active">
+            <!-- Cinematic Background Effects -->
+            <div class="cinema-bg-bokeh" id="bokeh-1"></div>
+            <div class="cinema-bg-bokeh" id="bokeh-2"></div>
+            <div class="cinema-bg-bokeh" id="bokeh-3"></div>
+            <div class="cinema-bg-bokeh" id="bokeh-4"></div>
+
+            <!-- God Rays Layer -->
+            <div class="god-rays-overlay"></div>
+
+            <!-- Dust Motes (subtle particles that brighten in rays) -->
+            <div class="dust-motes" id="dust-motes"></div>
+
+            <!-- Fireflies (foreground twinkling) -->
+            <div class="fireflies" id="fireflies"></div>
+
+            <!-- Petals Container (falling petals) -->
+            <div class="petal-layer" id="petal-layer" aria-hidden="true"></div>
+
+            <!-- Foreground Blurred Leaves -->
+            <div class="blurred-leaf" id="leaf-tl"></div>
+            <div class="blurred-leaf" id="leaf-tr"></div>
+            <div class="blurred-leaf" id="leaf-br"></div>
+
+            <!-- Subtle Vignette -->
+            <div class="vignette-overlay"></div>
+
             <div class="flower-container">
                 <svg id="flower-frame" version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 641.5 637.3">
                     <style type="text/css">
@@ -629,18 +655,20 @@
                         <!-- Envelope Front Face -->
                         <div class="envelope-front">
                             <div class="envelope-front-face">
-                                <div class="envelope-decoration">
-                                    <div class="heart-seal">❤</div>
-                                </div>
                             </div>
                         </div>
-                        
+
                         <!-- Envelope Top Flap (3D Triangle) -->
                         <div class="envelope-flap" id="envelopeFlap">
                             <div class="flap-front"></div>
                             <div class="flap-back"></div>
                         </div>
-                        
+
+                        <!-- Seal Moved Here to ensure it sits ON TOP of flap -->
+                        <div class="envelope-decoration">
+                            <div class="heart-seal">❤</div>
+                        </div>
+
                         <!-- Letter Inside Envelope -->
                         <div class="letter-wrapper" id="letterWrapper">
                             <div class="letter" id="letterContent">
@@ -653,12 +681,13 @@
                                     </div>
                                 </div>
                                 <div class="letter-footer">
-                                    <button id="make-wish-btn" class="memory-btn">Make a Wish <i class="fas fa-star"></i></button>
+                                    <button id="make-wish-btn" class="memory-btn">Make a Wish <i
+                                            class="fas fa-star"></i></button>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Instruction Text -->
                     <div class="envelope-instruction" id="envelopeInstruction">
                         <p>Click to open the envelope</p>
