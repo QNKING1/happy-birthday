@@ -1,4 +1,267 @@
 
+// --- Cinematic Effects Manager (God Rays, Parallax, Bokehs) ---
+class CinematicEffectsManager {
+    constructor() {
+        this.mouseX = 0;
+        this.mouseY = 0;
+        this.godRaysOverlay = document.querySelector('.god-rays-overlay');
+        this.blurredLeaves = {
+            tl: document.getElementById('leaf-tl'),
+            tr: document.getElementById('leaf-tr'),
+            br: document.getElementById('leaf-br')
+        };
+
+        // Environmental elements
+        this.firefliesContainer = document.getElementById('fireflies');
+        this.dustContainer = document.getElementById('dust-motes');
+        this.petalLayer = document.getElementById('petal-layer');
+        this.vignette = document.querySelector('.vignette-overlay');
+
+        // State holders
+        this.fireflies = [];
+        this.dustMotes = [];
+        this.petalTimeout = null;
+
+        // Petal spawn configuration
+        this.maxPetals = 14;         // maximum petals on-screen
+        this.initialPetalBurst = 6;  // spawn a small burst immediately to avoid empty first-frame
+        // Runtime flag to prevent double-starting loops
+        this.petalsRunning = false;
+
+        this.init();
+    }
+
+    init() {
+        // Setup mouse tracking for parallax
+        document.addEventListener('mousemove', (e) => this.onMouseMove(e));
+
+        // Initialize subtle effects
+        this.initFireflies();
+        this.initDustMotes();
+        // Petals are intentionally started only after the user clicks Start
+        // (call this.cinemaEffectsManager.startPetalLoop() from StoryManager.startExperience())
+
+        // Slight vignette fade-in for subtlety
+        if (this.vignette) gsap.to(this.vignette, { opacity: 0.6, duration: 2, ease: 'power1.out' });
+    }
+
+    // Fireflies: twinkling, drifting orbs
+    initFireflies() {
+        if (!this.firefliesContainer) return;
+        const count = 6; // 5-8 range
+        for (let i = 0; i < count; i++) {
+            const el = document.createElement('div');
+            el.className = 'firefly';
+            this.firefliesContainer.appendChild(el);
+            this.fireflies.push(el);
+
+            // Initial random position
+            const startX = Math.random() * window.innerWidth;
+            const startY = Math.random() * window.innerHeight;
+            gsap.set(el, { x: startX, y: startY, opacity: 0.6, scale: 1 });
+
+            // Twinkle (opacity pulse)
+            gsap.to(el, {
+                opacity: () => 0.2 + Math.random() * 0.9,
+                duration: 0.8 + Math.random() * 1.8,
+                yoyo: true,
+                repeat: -1,
+                ease: 'sine.inOut',
+                delay: Math.random() * 2
+            });
+
+            // Gentle wandering movement
+            const drift = () => {
+                gsap.to(el, {
+                    x: '+= ' + (Math.random() * 300 - 150),
+                    y: '+= ' + (Math.random() * 300 - 150),
+                    duration: 6 + Math.random() * 8,
+                    ease: 'sine.inOut',
+                    onComplete: drift,
+                    overwrite: 'auto'
+                });
+            };
+            drift();
+        }
+    }
+
+    // Dust motes: very small particles that brighten when inside god rays
+    initDustMotes() {
+        if (!this.dustContainer) return;
+        const count = 30;
+        for (let i = 0; i < count; i++) {
+            const el = document.createElement('div');
+            el.className = 'dust-mote';
+            this.dustContainer.appendChild(el);
+            this.dustMotes.push(el);
+
+            const startX = Math.random() * window.innerWidth;
+            const startY = Math.random() * window.innerHeight;
+            gsap.set(el, { x: startX, y: startY, opacity: 0.02 });
+
+            // Slow float with random durations. Use onUpdate to check god ray intersection
+            gsap.to(el, {
+                x: '+= ' + (Math.random() * 300 - 150),
+                y: '+= ' + (Math.random() * 200 - 100),
+                duration: 12 + Math.random() * 18,
+                ease: 'none',
+                repeat: -1,
+                yoyo: true,
+                onUpdate: () => {
+                    const rect = el.getBoundingClientRect();
+                    const cx = rect.left + rect.width / 2;
+                    const cy = rect.top + rect.height / 2;
+                    if (this.isInGodRay(cx, cy)) {
+                        gsap.to(el, { opacity: 0.16, duration: 0.25, overwrite: 'auto' });
+                    } else {
+                        gsap.to(el, { opacity: 0.02, duration: 0.6, overwrite: 'auto' });
+                    }
+                }
+            });
+        }
+    }
+
+    // Approximate whether a screen point (x,y) is within the diagonal god rays band
+    isInGodRay(x, y) {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const nx = x / w;
+        const ny = y / h;
+        // For the 135deg diagonal beam, points where nx and ny are similar sit along the diagonal
+        return Math.abs(nx - ny) < 0.08; // tweak threshold for width
+    }
+
+    // Falling petals: schedule and spawn frequent petals with an initial burst
+    startPetalLoop() {
+        if (this.petalsRunning) return; // already running
+        this.petalsRunning = true;
+
+        // Initial burst so the screen doesn't feel empty on start
+        const burst = this.initialPetalBurst || 5;
+        for (let i = 0; i < burst; i++) {
+            this.spawnPetal();
+        }
+
+        const schedule = () => {
+            const next = 800 + Math.random() * 1200; // 0.8 - 2.0s
+            this.petalTimeout = setTimeout(() => {
+                const spawnCount = Math.random() < 0.25 ? 2 : 1; // occasionally spawn doubles for density
+                for (let i = 0; i < spawnCount; i++) this.spawnPetal();
+                schedule();
+            }, next);
+        };
+        schedule();
+    }
+
+    spawnPetal() {
+        if (!this.petalLayer) return;
+
+        // Prevent too many on-screen petals
+        const current = this.petalLayer.children.length;
+        if (this.maxPetals && current >= this.maxPetals) return;
+
+        const petal = document.createElement('div');
+        petal.className = 'petal';
+
+        // Slightly vary the SVG size for depth
+        const size = 28 + Math.random() * 28; // 28px - 56px
+        const colorVariants = ['#f7a6b0', '#f8b3bd', '#f7c7d0'];
+        const color = colorVariants[Math.floor(Math.random() * colorVariants.length)];
+
+        petal.innerHTML = `<svg viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true"><path d="M32 4 C40 12, 56 24, 40 44 C24 64, 16 52, 12 36 C8 20, 24 8, 32 4 Z" fill="${color}"/></svg>`;
+        this.petalLayer.appendChild(petal);
+
+        const startX = Math.random() * 100; // percent across screen
+        const startLeft = `${startX}%`;
+        gsap.set(petal, { left: startLeft, top: -60, rotation: Math.random() * 60 - 30, opacity: 0.95, scale: 0.9 + Math.random() * 0.4 });
+
+        // Slight variation for duration so petals don't all land together
+        const duration = 4 + Math.random() * 6; // 4 - 10s
+        const driftX = (Math.random() * 240 - 120);
+        gsap.to(petal, {
+            top: window.innerHeight + 80,
+            left: `+=${driftX}`,
+            rotation: `+=${(Math.random() * 360 - 180)}`,
+            duration: duration,
+            ease: 'power1.inOut',
+            onComplete: () => { if (petal && petal.parentNode) petal.parentNode.removeChild(petal); }
+        });
+    }
+
+    onMouseMove(event) {
+        // Normalize mouse position to -1 to 1
+        this.mouseX = (event.clientX / window.innerWidth) - 0.5;
+        this.mouseY = (event.clientY / window.innerHeight) - 0.5;
+
+        // Update god rays position (subtle opposite parallax)
+        this.updateGodRaysParallax();
+
+        // Update blurred leaves parallax (stronger effect)
+        this.updateBlurredLeavesParallax();
+    }
+
+    updateGodRaysParallax() {
+        if (!this.godRaysOverlay) return;
+
+        // God rays move in opposite direction of mouse (creates depth illusion)
+        const offsetX = -this.mouseX * 15; // Subtle 15px max offset
+        const offsetY = -this.mouseY * 15;
+
+        gsap.to(this.godRaysOverlay, {
+            x: offsetX,
+            y: offsetY,
+            duration: 0.8,
+            overwrite: 'auto'
+        });
+    }
+
+    updateBlurredLeavesParallax() {
+        // Each leaf has different parallax strength for depth effect
+        const strengths = {
+            tl: 40,  // Stronger parallax
+            tr: 50,  // Strongest
+            br: 35   // Medium
+        };
+
+        Object.keys(this.blurredLeaves).forEach(key => {
+            const leaf = this.blurredLeaves[key];
+            if (!leaf) return;
+
+            const offsetX = this.mouseX * strengths[key];
+            const offsetY = this.mouseY * strengths[key];
+
+            gsap.to(leaf, {
+                x: offsetX,
+                y: offsetY,
+                duration: 1,
+                overwrite: 'auto'
+            });
+        });
+    }
+
+    destroy() {
+        // Cleanup when scene changes
+        document.removeEventListener('mousemove', (e) => this.onMouseMove(e));
+
+        // Kill GSAP tweens for generated elements
+        gsap.killTweensOf('.firefly');
+        gsap.killTweensOf('.dust-mote');
+        gsap.killTweensOf('.petal');
+
+        // Clear any scheduled petal timeouts
+        if (this.petalTimeout) {
+            clearTimeout(this.petalTimeout);
+            this.petalTimeout = null;
+        }
+        this.petalsRunning = false;
+
+        // Remove DOM children
+        if (this.firefliesContainer) this.firefliesContainer.innerHTML = '';
+        if (this.dustContainer) this.dustContainer.innerHTML = '';
+        if (this.petalLayer) this.petalLayer.innerHTML = '';
+    }
+}
+
 // --- Story Manager ---
 class StoryManager {
     constructor() {
@@ -7,6 +270,7 @@ class StoryManager {
         this.audioContext = null;
         this.bgMusic = document.getElementById('bg-music');
         this.isMusicPlaying = false;
+        this.cinemaEffectsManager = null;
 
         this.init();
     }
@@ -18,6 +282,9 @@ class StoryManager {
 
         // Setup visualizer/background effects (Particles)
         this.initBackgroundVisuals();
+
+        // Setup cinematic effects for intro scene
+        this.cinemaEffectsManager = new CinematicEffectsManager();
     }
 
     setupEventListeners() {
@@ -132,6 +399,11 @@ class StoryManager {
             }
         }, 8000);
 
+        // Start petals after user clicked Start
+        if (this.cinemaEffectsManager && typeof this.cinemaEffectsManager.startPetalLoop === 'function') {
+            this.cinemaEffectsManager.startPetalLoop();
+        }
+
         // Hide Start Button and Start Animation
         gsap.to('.happy', {
             opacity: 0, duration: 0.5, onComplete: () => {
@@ -155,6 +427,11 @@ class StoryManager {
             resetEnvelopeState();
         }
 
+        // Cleanup cinematic effects when leaving intro scene
+        if (this.currentSceneIndex === 0 && this.cinemaEffectsManager) {
+            this.cinemaEffectsManager.destroy();
+        }
+
         // Hide ALL scenes to ensure clean state
         this.scenes.forEach(s => {
             const el = document.getElementById(`scene-${s}`);
@@ -165,6 +442,11 @@ class StoryManager {
         const nextId = `scene-${sceneName}`;
         const nextEl = document.getElementById(nextId);
         if (nextEl) nextEl.classList.add('active');
+
+        // Reinitialize cinematic effects if transitioning to intro
+        if (sceneName === 'intro' && !this.cinemaEffectsManager) {
+            this.cinemaEffectsManager = new CinematicEffectsManager();
+        }
 
         this.currentSceneIndex = targetIndex;
     }
@@ -549,49 +831,50 @@ class InteractiveMemoryManager {
     }
 
     zoomIntoMemory(memory) {
-        if (this.isZoomedIn) return; // Prevent multiple zooms
+        if (this.isZoomedIn && this.currentFocusedMemory === memory) return; // Prevent double focusing same card
+
+        // If another card is currently focused, return it first then focus this one
+        if (this.isZoomedIn && this.currentFocusedMemory && this.currentFocusedMemory !== memory) {
+            this.closeZoom(() => this.zoomIntoMemory(memory));
+            return;
+        }
 
         this.isZoomedIn = true;
         this.currentFocusedMemory = memory;
 
-        // Pause floating animation
-        this.floatingPaused = true;
+        // Do NOT pause floating — other cards should continue subtle motion
 
-        // Get card world position
-        const cardPosition = new THREE.Vector3();
-        memory.getWorldPosition(cardPosition);
+        // Target world position: center of screen at depth just in front of camera
+        const targetWorld = new THREE.Vector3(0, 0, this.camera.position.z - 50);
 
-        // Calculate camera position looking at card
-        const direction = new THREE.Vector3();
-        direction.subVectors(cardPosition, this.camera.position).normalize();
-        const cameraTargetPos = new THREE.Vector3();
-        cameraTargetPos.subVectors(cardPosition, direction.multiplyScalar(this.zoomDistance));
+        // Convert to local coordinates relative to the floatGroup
+        const localTarget = this.floatGroup.worldToLocal(targetWorld.clone());
 
-        // Rotate card to face camera perfectly (flatten rotation)
-        const cardTargetRotation = {
-            x: 0,
-            y: 0,
-            z: 0
-        };
-
-        // Animate card rotation for perfect alignment
-        gsap.to(memory.rotation, {
-            x: cardTargetRotation.x,
-            y: cardTargetRotation.y,
-            z: cardTargetRotation.z,
+        // Animate the selected memory to the center position and reset rotation
+        gsap.to(memory.position, {
+            x: localTarget.x,
+            y: localTarget.y,
+            z: localTarget.z,
             duration: this.zoomDuration,
             ease: 'power2.inOut'
         });
 
-        // Animate camera with GSAP
-        gsap.to(this.camera.position, {
-            x: cameraTargetPos.x,
-            y: cameraTargetPos.y,
-            z: cameraTargetPos.z,
+        gsap.to(memory.rotation, {
+            x: 0,
+            y: 0,
+            z: 0,
             duration: this.zoomDuration,
-            ease: 'power2.inOut',
-            onUpdate: () => {
-                this.camera.lookAt(cardPosition);
+            ease: 'power2.inOut'
+        });
+
+        // Bring focused card visually forward: full opacity + slight scale
+        gsap.to(memory.material, { opacity: 1.0, duration: this.zoomDuration, ease: 'power2.inOut' });
+        gsap.to(memory.scale, { x: 1.08, y: 1.08, z: 1.08, duration: this.zoomDuration, ease: 'power2.inOut' });
+
+        // Dim other cards to create a subtle overlay effect without stopping their motion
+        this.memories.forEach(mem => {
+            if (mem !== memory) {
+                if (mem.material) gsap.to(mem.material, { opacity: 0.22, duration: this.zoomDuration, ease: 'power2.inOut' });
             }
         });
 
@@ -608,41 +891,44 @@ class InteractiveMemoryManager {
     }
 
     closeZoom(callback) {
-        if (!this.isZoomedIn) return;
+        if (!this.isZoomedIn) {
+            if (callback) callback();
+            return;
+        }
 
         this.isZoomedIn = false;
 
-        // Resume floating animation
-        this.floatingPaused = false;
-
-        // Get current focused card and reset its rotation
+        // Get current focused card and reset its rotation/position
         const focusedCard = this.currentFocusedMemory;
         this.currentFocusedMemory = null;
 
-        // Animate card back to random rotation (resume floating rotation)
         if (focusedCard) {
-            gsap.to(focusedCard.rotation, {
-                x: Math.random() * 0.5 - 0.25,
-                y: Math.random() * 0.5 - 0.25,
-                z: Math.random() * 0.5 - 0.25,
+            // Restore position and rotation from userData
+            const orig = focusedCard.userData.originalPos;
+            const oriRot = focusedCard.userData.originalRot;
+
+            gsap.to(focusedCard.position, {
+                x: orig.x,
+                y: orig.y,
+                z: orig.z,
                 duration: this.zoomDuration,
                 ease: 'power2.inOut'
             });
+
+            gsap.to(focusedCard.rotation, {
+                x: oriRot.x,
+                y: oriRot.y,
+                z: oriRot.z,
+                duration: this.zoomDuration,
+                ease: 'power2.inOut'
+            });
+
+            gsap.to(focusedCard.scale, { x: 1, y: 1, z: 1, duration: this.zoomDuration, ease: 'power2.inOut' });
         }
 
-        // Animate camera back to original position
-        gsap.to(this.camera.position, {
-            x: this.originalCameraPos.x,
-            y: this.originalCameraPos.y,
-            z: this.originalCameraPos.z,
-            duration: this.zoomDuration,
-            ease: 'power2.inOut',
-            onUpdate: () => {
-                this.camera.lookAt(this.scene.position);
-            },
-            onComplete: () => {
-                if (callback) callback();
-            }
+        // Restore opacity of other cards
+        this.memories.forEach(mem => {
+            if (mem.material) gsap.to(mem.material, { opacity: 0.8, duration: this.zoomDuration, ease: 'power2.inOut' });
         });
 
         // Hide close button
@@ -654,6 +940,74 @@ class InteractiveMemoryManager {
                 duration: 0.3
             });
         }
+
+        // Call callback after restore completes
+        if (callback) {
+            setTimeout(() => callback(), (this.zoomDuration + 0.05) * 1000);
+        }
+    }
+
+    // Create a glowing highlight plane slightly larger than the card and attach it behind the card
+    createHighlightFor(memory) {
+        if (!memory) return;
+
+        // Avoid duplicate highlight
+        if (memory.userData.highlight) return;
+
+        // Derive geometry size from card if possible
+        const geoW = (memory.geometry && memory.geometry.parameters && memory.geometry.parameters.width) ? memory.geometry.parameters.width : 25;
+        const geoH = (memory.geometry && memory.geometry.parameters && memory.geometry.parameters.height) ? memory.geometry.parameters.height : 35;
+
+        const plane = new THREE.PlaneGeometry(geoW * 1.1, geoH * 1.1);
+
+        // Create a soft gradient texture using canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        const grad = ctx.createRadialGradient(128, 128, 10, 128, 128, 128);
+        grad.addColorStop(0, 'rgba(255, 200, 160, 0.95)'); // warm golden center
+        grad.addColorStop(0.5, 'rgba(255, 140, 180, 0.45)'); // neon-pink mid
+        grad.addColorStop(1, 'rgba(255, 140, 180, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 256, 256);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.needsUpdate = true;
+
+        const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+
+        const mesh = new THREE.Mesh(plane, mat);
+        mesh.position.copy(memory.position);
+        mesh.position.z = memory.position.z - 1; // place slightly behind
+        mesh.renderOrder = (memory.renderOrder || 0) - 1;
+
+        mesh.scale.set(memory.scale.x * 1.08, memory.scale.y * 1.08, 1);
+
+        this.floatGroup.add(mesh);
+        memory.userData.highlight = mesh;
+
+        // Animate highlight in (fade+scale)
+        gsap.to(mat, { opacity: 1.0, duration: this.zoomDuration, ease: 'power2.inOut' });
+        gsap.to(mesh.scale, { x: memory.scale.x * 1.12, y: memory.scale.y * 1.12, duration: this.zoomDuration, ease: 'power2.inOut' });
+    }
+
+    removeHighlightFor(memory) {
+        if (!memory || !memory.userData.highlight) return;
+        const mesh = memory.userData.highlight;
+        if (mesh.material) {
+            gsap.to(mesh.material, {
+                opacity: 0, duration: 0.5, ease: 'power2.out', onComplete: () => {
+                    if (mesh.parent) mesh.parent.remove(mesh);
+                    mesh.geometry.dispose();
+                    if (mesh.material.map) mesh.material.map.dispose();
+                    mesh.material.dispose();
+                }
+            });
+        } else {
+            if (mesh.parent) mesh.parent.remove(mesh);
+        }
+        memory.userData.highlight = null;
     }
 
     // Modularity: Adjust zoom distance
@@ -676,6 +1030,11 @@ class InteractiveMemoryManager {
 
         // Update each memory card with smooth sine-wave floating motion
         this.memories.forEach((memory, index) => {
+            // If this card is locked (focused or returning), skip floating updates to avoid snapping
+            if (memory.userData && memory.userData.locked) {
+                return; // do not override the animation in progress
+            }
+
             // Create unique physics data if not exists
             if (!this.cardPhysicsData.has(index)) {
                 this.cardPhysicsData.set(index, {
@@ -776,6 +1135,14 @@ function initMemoryScene() {
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x000000, 0.001);
 
+    // Calculate responsive dimensions
+    const isSmallScreen = window.innerWidth < 768;
+    const cardWidthBase = isSmallScreen ? 15 : 25;
+    const cardHeightBase = isSmallScreen ? 21 : 35;
+    const cardSpreadRange = isSmallScreen ? 250 : 400;
+    const cardVerticalRange = isSmallScreen ? 120 : 200;
+    const cardDepthRange = isSmallScreen ? 120 : 200;
+
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.z = 250;
 
@@ -784,6 +1151,18 @@ function initMemoryScene() {
     renderer.setPixelRatio(window.devicePixelRatio);
     container.appendChild(renderer.domElement);
 
+    // Add responsive resize listener
+    const onWindowResize = () => {
+        const newWidth = window.innerWidth;
+        const newHeight = window.innerHeight;
+
+        camera.aspect = newWidth / newHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(newWidth, newHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+    };
+    window.addEventListener('resize', onWindowResize);
+
     const floatGroup = new THREE.Group();
     scene.add(floatGroup);
 
@@ -791,20 +1170,24 @@ function initMemoryScene() {
     const placeholderImages = ['img1.jpg', 'img2.jpg'];
     const textures = placeholderImages.map(url => textureLoader.load(url));
 
-    const geometry = new THREE.PlaneGeometry(25, 35);
+    const geometry = new THREE.PlaneGeometry(cardWidthBase, cardHeightBase);
 
-    // Cards create karna
+    // Cards create with responsive sizing
     for (let i = 0; i < 40; i++) {
         const material = new THREE.MeshBasicMaterial({
             map: textures[i % textures.length],
             side: THREE.DoubleSide,
             transparent: true,
             opacity: 0.8,
-            color: 0xffffff
+            color: 0xaaaaaa // Start dim/gray to allow "glow" (brightening to white)
         });
 
         const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.set(Math.random() * 400 - 200, Math.random() * 200 - 100, Math.random() * 200 - 100);
+        mesh.position.set(
+            Math.random() * cardSpreadRange - (cardSpreadRange / 2),
+            Math.random() * cardVerticalRange - (cardVerticalRange / 2),
+            Math.random() * cardDepthRange - (cardDepthRange / 2)
+        );
         mesh.rotation.set(Math.random() * 0.5, Math.random() * 0.5, Math.random() * 0.5);
 
         // Custom data for animation
@@ -817,6 +1200,23 @@ function initMemoryScene() {
         floatGroup.add(mesh);
     }
 
+    // Smooth Entry Transition (Explosion Element)
+    // Start small and center, then stagger out
+    floatGroup.children.forEach(mesh => {
+        mesh.scale.set(0, 0, 0); // Start invisible/tiny
+    });
+
+    // Animate in
+    gsap.to(floatGroup.children.map(m => m.scale), {
+        x: 1, y: 1, z: 1,
+        duration: 1.5,
+        stagger: {
+            amount: 1.0,
+            from: "random"
+        },
+        ease: "back.out(1.7)"
+    });
+
     // Lights
     scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
@@ -827,78 +1227,311 @@ function initMemoryScene() {
     let focusedObj = null;
 
     // Mouse Move for Hover & Parallax
+    // Mouse Move for Hover & Parallax
     window.addEventListener('mousemove', (event) => {
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-        // Hover Effect
+        // Hover Effect: Check both cloud and focused card
+        const targets = [...floatGroup.children];
+        if (focusedObj) targets.push(focusedObj);
+
         raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObjects(floatGroup.children);
+        const intersects = raycaster.intersectObjects(targets);
 
         if (intersects.length > 0 && !isZoomed) {
             document.body.style.cursor = 'pointer';
-            gsap.to(intersects[0].object.scale, { x: 1.2, y: 1.2, duration: 0.3 });
+            const target = intersects[0].object;
+            gsap.to(target.scale, { x: 1.2, y: 1.2, duration: 0.3 });
+            // Glow Effect: Brighten color
+            if (target.material) gsap.to(target.material.color, { r: 1, g: 1, b: 1, duration: 0.3 });
         } else {
             document.body.style.cursor = 'default';
+            // Scale and Color Reset
             floatGroup.children.forEach(child => {
-                if (child !== focusedObj) gsap.to(child.scale, { x: 1, y: 1, duration: 0.3 });
+                if (child !== focusedObj) {
+                    gsap.to(child.scale, { x: 1, y: 1, duration: 0.3 });
+                    if (child.material) gsap.to(child.material.color, { r: 0.66, g: 0.66, b: 0.66, duration: 0.3 }); // Reset to 0xaaaaaa
+                }
             });
         }
     });
 
-    // Click to Zoom
+    // Click to Focus (Card-to-Center)
     window.addEventListener('click', () => {
-        if (isZoomed) {
-            returnToCloud();
-            return;
-        }
+        const targets = [...floatGroup.children];
+        if (focusedObj) targets.push(focusedObj);
 
         raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObjects(floatGroup.children);
+        const intersects = raycaster.intersectObjects(targets);
 
         if (intersects.length > 0) {
-            focusedObj = intersects[0].object;
-            zoomIn(focusedObj);
+            const clicked = intersects[0].object;
+
+            // If same card clicked while focused -> return it
+            if (isZoomed && focusedObj === clicked) {
+                returnToCloud();
+                return;
+            }
+
+            // If another card is focused, return it first then focus new one
+            if (isZoomed && focusedObj && focusedObj !== clicked) {
+                returnToCloud();
+                setTimeout(() => zoomIn(clicked), 1300);
+                return;
+            }
+
+            // Otherwise focus clicked card
+            if (!isZoomed) {
+                zoomIn(clicked);
+            }
+        } else {
+            // Clicked empty space: if focused, return to cloud
+            if (isZoomed) returnToCloud();
         }
     });
 
     function zoomIn(obj) {
+        if (!obj) return;
         isZoomed = true;
-        // Move camera in front of card
-        const targetPos = obj.position.clone().add(new THREE.Vector3(0, 0, 50));
+        focusedObj = obj;
 
-        gsap.to(camera.position, {
-            x: obj.position.x,
-            y: obj.position.y,
-            z: obj.position.z + 60,
-            duration: 1.5,
-            ease: "power2.inOut"
+        // Lock object so floating doesn't override the animation
+        obj.userData.locked = true;
+
+        // Create highlight plane behind the object
+        createHighlightFor(obj);
+
+        // Detach from rotating floatGroup and attach to stable Scene
+        // This ensures world rotation (0,0,0) is truly straight relative to camera
+        scene.attach(obj);
+
+        // Target world position just in front of camera (Camera is at Z=250)
+        // Since obj is now child of scene, we use global coords
+        gsap.to(obj.position, {
+            x: 0,
+            y: 0,
+            z: camera.position.z - 50,
+            duration: 1.2,
+            ease: 'power2.inOut'
         });
 
-        gsap.to(obj.rotation, { x: 0, y: 0, z: 0, duration: 1 });
-        // Show Close Button (Optional: aap HTML mein button dikha sakte hain)
+        // Strict Rotation Overwrite: Force 0,0,0 (World Space)
+        gsap.to(obj.rotation, {
+            x: 0,
+            y: 0,
+            z: 0,
+            duration: 1.2,
+            ease: 'power2.out',
+            overwrite: true
+        });
+
+        gsap.to(obj.scale, { x: 1.08, y: 1.08, z: 1.08, duration: 1.2, ease: 'power2.inOut' });
+
+        // Dim other cards
+        floatGroup.children.forEach(child => {
+            if (child.material) gsap.to(child.material, { opacity: 0.25, duration: 1.2, ease: 'power2.inOut' });
+        });
+    }
+
+    function createHighlightFor(obj) {
+        if (!obj) return;
+        if (obj.userData.highlight) return;
+
+        const geoW = (obj.geometry && obj.geometry.parameters && obj.geometry.parameters.width) ? obj.geometry.parameters.width : 25;
+        const geoH = (obj.geometry && obj.geometry.parameters && obj.geometry.parameters.height) ? obj.geometry.parameters.height : 35;
+
+        // Premium Border: Slightly larger Plane
+        const planeGeo = new THREE.PlaneGeometry(geoW * 1.2, geoH * 1.2);
+
+        // Dynamic Texture for Glow
+        const canvas = document.createElement('canvas');
+        canvas.width = 256; canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        const grad = ctx.createRadialGradient(128, 128, 10, 128, 128, 128);
+        grad.addColorStop(0, 'rgba(255,220,180,0.9)'); // Warm golden core
+        grad.addColorStop(0.6, 'rgba(255,100,150,0.5)'); // Soft pink mid
+        grad.addColorStop(1, 'rgba(255,100,150,0)'); // Fade out
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 256, 256);
+        const tex = new THREE.CanvasTexture(canvas);
+
+        const mat = new THREE.MeshBasicMaterial({
+            map: tex,
+            transparent: true,
+            opacity: 0,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide
+        });
+
+        const mesh = new THREE.Mesh(planeGeo, mat);
+
+        // Parent to the card so it follows automatically
+        obj.add(mesh);
+        mesh.position.set(0, 0, -1); // Local offset behind
+        mesh.rotation.set(0, 0, 0);
+        mesh.scale.set(1.1, 1.1, 1);
+
+        obj.userData.highlight = mesh;
+
+        // Animation: Fade in and Scale up
+        gsap.to(mat, { opacity: 1.0, duration: 1.2, ease: 'power2.inOut' });
+        gsap.to(mesh.scale, { x: 1.2, y: 1.2, duration: 1.2, ease: 'power2.inOut' });
+    }
+
+    function removeHighlightFor(obj) {
+        if (!obj || !obj.userData.highlight) return;
+        const mesh = obj.userData.highlight;
+        if (mesh.material) {
+            gsap.to(mesh.material, {
+                opacity: 0, duration: 0.4, ease: 'power2.out', onComplete: () => {
+                    if (mesh.parent) mesh.parent.remove(mesh);
+                    mesh.geometry.dispose();
+                    if (mesh.material.map) mesh.material.map.dispose();
+                    mesh.material.dispose();
+                }
+            });
+        } else {
+            if (mesh.parent) mesh.parent.remove(mesh);
+        }
+        obj.userData.highlight = null;
     }
 
     function returnToCloud() {
-        isZoomed = false;
-        gsap.to(camera.position, { x: 0, y: 0, z: 250, duration: 1.5, ease: "power2.inOut" });
-        if (focusedObj) {
-            gsap.to(focusedObj.rotation, {
-                x: focusedObj.userData.originalRot.x,
-                y: focusedObj.userData.originalRot.y,
-                z: focusedObj.userData.originalRot.z,
-                duration: 1
-            });
-        }
-        focusedObj = null;
+        if (!focusedObj) return;
+        const obj = focusedObj;
+
+        // Ensure locked during return
+        obj.userData.locked = true;
+
+        // Re-attach to floatGroup to restore coordinate system
+        // 'attach' maintains the world transform, so visually it doesn't jump
+        floatGroup.attach(obj);
+
+        const orig = obj.userData.originalPos;
+        const oriRot = obj.userData.originalRot;
+
+        // Animate return to original LOCAL position within the group
+        gsap.to(obj.position, {
+            x: orig.x,
+            y: orig.y,
+            z: orig.z,
+            duration: 1.2,
+            ease: 'power2.inOut',
+            onComplete: () => {
+                // UNLOCK only after animation completes
+                obj.userData.locked = false;
+
+                // Reset state
+                if (focusedObj === obj) {
+                    focusedObj = null;
+                    isZoomed = false;
+                }
+            }
+        });
+
+        gsap.to(obj.rotation, {
+            x: oriRot.x,
+            y: oriRot.y,
+            z: oriRot.z,
+            duration: 1.2,
+            ease: 'power2.inOut'
+        });
+
+        gsap.to(obj.scale, { x: 1, y: 1, z: 1, duration: 1.2, ease: 'power2.inOut' });
+
+        // Remove highlight
+        removeHighlightFor(obj);
+
+        // Restore opacities
+        floatGroup.children.forEach(child => {
+            if (child.material) gsap.to(child.material, { opacity: 0.8, duration: 1.2, ease: 'power2.inOut' });
+        });
     }
+
+    // --- 1. Starfield Logic ---
+    function createStarfield() {
+        const starGeo = new THREE.BufferGeometry();
+        const starCount = 2000;
+        const posArray = new Float32Array(starCount * 3);
+
+        for (let i = 0; i < starCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 1500; // Spread wide
+        }
+
+        starGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+
+        const starMat = new THREE.PointsMaterial({
+            size: 2,
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.8,
+            map: new THREE.TextureLoader().load('https://assets.codepen.io/16327/star.png'), // Optional simple star or circle
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+        });
+
+        const starMesh = new THREE.Points(starGeo, starMat);
+        scene.add(starMesh);
+        return starMesh;
+    }
+    const stars = createStarfield();
+
+    // --- 2. Floating Dust Logic ---
+    function createDust() {
+        const dustGeo = new THREE.BufferGeometry();
+        const dustCount = 100;
+        const dustPos = new Float32Array(dustCount * 3);
+        const dustSizes = new Float32Array(dustCount);
+
+        for (let i = 0; i < dustCount; i++) {
+            dustPos[i * 3] = (Math.random() - 0.5) * 800;
+            dustPos[i * 3 + 1] = (Math.random() - 0.5) * 800;
+            dustPos[i * 3 + 2] = (Math.random() - 0.5) * 800;
+            dustSizes[i] = Math.random() * 3;
+        }
+
+        dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+
+        const dustMat = new THREE.PointsMaterial({
+            color: 0xffd700, // Gold dust
+            size: 4,
+            transparent: true,
+            opacity: 0.4,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+
+        const dustMesh = new THREE.Points(dustGeo, dustMat);
+        scene.add(dustMesh);
+        return { mesh: dustMesh, speeds: Array(dustCount).fill(0).map(() => Math.random() * 0.05 + 0.02) };
+    }
+    const dustSystem = createDust();
 
     const animate = () => {
         requestAnimationFrame(animate);
 
+        // Starfield Parallax
+        stars.rotation.y = mouse.x * 0.05;
+        stars.rotation.x = -mouse.y * 0.05;
+
+        // Dust Movement (Drift towards camera)
+        const positions = dustSystem.mesh.geometry.attributes.position.array;
+        for (let i = 0; i < 100; i++) {
+            positions[i * 3 + 2] += dustSystem.speeds[i]; // Move Z towards camera
+            if (positions[i * 3 + 2] > 300) positions[i * 3 + 2] = -500; // Reset loop
+        }
+        dustSystem.mesh.geometry.attributes.position.needsUpdate = true;
+        dustSystem.mesh.rotation.y += 0.0005;
+
         if (!isZoomed) {
             // Natural Floating Movement
             floatGroup.children.forEach(obj => {
+                // strict check: if obj is focused or locked, DO NOT TOUCH IT
+                if (obj === focusedObj) return;
+                if (obj.userData && obj.userData.locked) return;
+
                 const time = Date.now() * 0.001;
                 obj.position.y = obj.userData.originalPos.y + Math.sin(time + obj.userData.phase) * 5;
             });
@@ -961,9 +1594,9 @@ function initLetterInteraction() {
         tl.to('.letter-wrapper', {
             opacity: 1,
             visibility: 'visible',
-            transform: 'translate(-50%, -50%) scale(1) translateY(0px)',
+            transform: 'translate(-50%, -50%) scale(1)',
             duration: 0.8,
-            ease: 'back.out(1.2)',
+            ease: 'back.out(1.5)', // Slight wobble for "light paper" feel
             onStart: () => {
                 letterWrapper.classList.add('letter-visible');
             }
@@ -989,16 +1622,15 @@ function initLetterInteraction() {
             if (typeof Typed !== 'undefined') {
                 new Typed('.text-content', {
                     strings: [
-                        "Wishing you a day filled with laughter, love, and starlight...",
-                        "You are truly special not just today, but every single day.",
-                        "May this year bring you closer to all your dreams.",
-                        "Happy Birthday! ^1000"
+                        "Dearest,<br><br>Wishing you a day filled with laughter,<br>love, and starlight...^1000<br><br>You are truly special not just today,<br>but every single day.^1000<br><br>May this year bring you closer<br>to all your dreams.<br><br>Happy Birthday! ^1000"
                     ],
-                    typeSpeed: 25,
-                    backSpeed: 5,
-                    backDelay: 1500,
+                    typeSpeed: 45,
+                    startDelay: 500,
+                    backSpeed: 0, // Fix jumpy text: Instant backspace
+                    smartBackspace: true,
+                    backDelay: 500, // Reduced delay
                     showCursor: true,
-                    cursorChar: "✦",
+                    cursorChar: "✎",
                     onComplete: () => {
                         fadeInWishButton();
                     }
@@ -1096,10 +1728,13 @@ function initFinale() {
     console.log("initFinale START");
 
     // 1. Trigger the SVG Cake Animation Manually
-    const firstAnim = document.getElementById('bizcocho_1');
-    if (firstAnim && typeof firstAnim.beginElement === 'function') {
-        firstAnim.beginElement(); // This starts the chain reaction
-    }
+    // 1. Trigger the SVG Cake Animation Manually with DELAY
+    setTimeout(() => {
+        const firstAnim = document.getElementById('bizcocho_1');
+        if (firstAnim && typeof firstAnim.beginElement === 'function') {
+            firstAnim.beginElement(); // This starts the chain reaction
+        }
+    }, 2000); // 2-second delay as requested
 
     // 2. Drop the candle AFTER the cake builds (approx 3 seconds later)
     setTimeout(() => {
@@ -1141,6 +1776,8 @@ function initFinale() {
     }
 
     let blownOut = false;
+    let audioContext = null;
+    let micStream = null;
 
     function blowOutCandle() {
         if (blownOut) return;
@@ -1161,12 +1798,81 @@ function initFinale() {
             const finalText = document.querySelector('.finale-text');
             if (finalText) finalText.classList.add('visible');
         }, 1000);
+
+        // --- Cleanup Microphone ---
+        if (micStream) {
+            micStream.getTracks().forEach(track => track.stop());
+            micStream = null;
+        }
+        if (audioContext) {
+            audioContext.close();
+            audioContext = null;
+        }
     }
 
     candle.addEventListener('click', (e) => {
         e.stopPropagation();
         blowOutCandle();
     });
+
+    // --- Microphone Blow Detection ---
+    setTimeout(() => {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    micStream = stream;
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+                    // Resume context if suspended (browser autoplay policy)
+                    if (audioContext.state === 'suspended') {
+                        audioContext.resume();
+                    }
+
+                    const analyser = audioContext.createAnalyser();
+                    const microphone = audioContext.createMediaStreamSource(stream);
+                    const javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+
+                    analyser.smoothingTimeConstant = 0.8;
+                    analyser.fftSize = 1024;
+
+                    microphone.connect(analyser);
+                    analyser.connect(javascriptNode);
+                    javascriptNode.connect(audioContext.destination);
+
+                    let blowTriggerCount = 0;
+
+                    javascriptNode.onaudioprocess = function () {
+                        if (blownOut) return; // Stop processing if already done
+
+                        const array = new Uint8Array(analyser.frequencyBinCount);
+                        analyser.getByteFrequencyData(array);
+
+                        // Calculate volume only from higher frequencies (typical for blow/wind)
+                        let blowValue = 0;
+                        for (let i = 10; i < 30; i++) {
+                            blowValue += array[i];
+                        }
+
+                        const averageBlow = blowValue / 20;
+
+                        // FIX: Increased threshold to 75 to avoid instant blowout from background noise
+                        if (averageBlow > 75) {
+                            blowTriggerCount++;
+                            // Require 5 consecutive frames of "blowing" to trigger (approx 0.1s)
+                            if (blowTriggerCount > 5) {
+                                console.log("Blow Detected! Level:", averageBlow);
+                                blowOutCandle();
+                            }
+                        } else {
+                            blowTriggerCount = 0; // Reset if silence/noise drops
+                        }
+                    };
+                })
+                .catch(err => {
+                    console.log("Microphone access denied or not available. Fallback to click.", err);
+                });
+        }
+    }, 4500); // Increased delay to 4.5s to ensure candle is ready
 }
 
 
