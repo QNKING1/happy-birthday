@@ -261,125 +261,407 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
 /* --- Scene 3: The Letter --- */
 #scene-letter {
     background: transparent;
+    perspective: 1000px;
 }
 
-/* Keep original envelope styles but scope or adapt colors if needed */
+/* ===== 3D ENVELOPE STYLES ===== */
+
+.envelope-scene-wrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
 .envelope-container {
     position: relative;
     cursor: pointer;
-    transition: transform 0.5s ease;
+    perspective: 1200px;
     z-index: 35;
-}
-
-.envelope-container:hover {
-    transform: scale(1.02);
-}
-
-.envelope {
-    width: min(300px, 90vw);
-    height: min(200px, 60vw);
-    background-color: #c94c4c;
-    /* Keep original red */
-    position: relative;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    /* Stronger shadow for dark mode */
+    width: 100%;
+    max-width: 600px;
+    height: 100%;
+    max-height: 500px;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
+    justify-content: center;
 }
 
-.flap {
+/* 3D Envelope Main Container */
+.envelope-3d {
+    position: relative;
+    width: min(320px, 85vw);
+    height: min(220px, 65vw);
+    transform-style: preserve-3d;
+    transition: transform 0.3s ease;
+    animation: envelopeIdlePulse 3s ease-in-out infinite;
+}
+
+@keyframes envelopeIdlePulse {
+
+    0%,
+    100% {
+        filter: drop-shadow(0 15px 40px rgba(0, 0, 0, 0.4));
+    }
+
+    50% {
+        filter: drop-shadow(0 20px 50px rgba(0, 0, 0, 0.5));
+    }
+}
+
+.envelope-container:hover .envelope-3d {
+    transform: scale(1.03) translateZ(20px);
+    animation: none;
+}
+
+/* Envelope Front Face */
+.envelope-front {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+}
+
+.envelope-front-face {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #f1d2a9 0%, #e8c397 100%);
+    border-radius: 3px;
+    box-shadow:
+        0 15px 40px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    border: 2px solid #d4b896;
+}
+
+.envelope-decoration {
+    text-align: center;
+    z-index: 5;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.heart-seal {
+    font-size: 2.5rem;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    animation: heartBeat 2s ease-in-out infinite;
+}
+
+@keyframes heartBeat {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.15);
+    }
+}
+
+/* 3D Envelope Flap */
+.envelope-flap {
     position: absolute;
     top: 0;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    transform: translateX(-50%);
+    transform-style: preserve-3d;
+    transform-origin: top center;
+    transition: transform 0.7s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    z-index: 10;
+}
+
+.flap-front {
+    position: absolute;
     width: 0;
     height: 0;
-    border-left: min(150px, 45vw) solid transparent;
-    border-right: min(150px, 45vw) solid transparent;
-    border-top: min(110px, 33vw) solid #e05e5e;
-    transform-origin: top;
-    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    border-left: min(160px, 43vw) solid transparent;
+    border-right: min(160px, 43vw) solid transparent;
+    border-top: min(115px, 34vw) solid #e8c397;
+    border-radius: 50% 50% 0 0 / 40% 40% 0 0;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.15);
     z-index: 3;
 }
 
-.envelope.open .flap {
+.flap-back {
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-left: min(160px, 43vw) solid transparent;
+    border-right: min(160px, 43vw) solid transparent;
+    border-top: min(115px, 34vw) solid #d4b896;
+    border-radius: 50% 50% 0 0 / 40% 40% 0 0;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%) rotateY(180deg);
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.2);
+    z-index: 2;
+    backface-visibility: hidden;
+}
+
+/* Envelope opened state */
+.envelope-3d.envelope-open .envelope-flap {
     transform: rotateX(180deg);
     z-index: 1;
 }
 
-.letter {
-    position: absolute;
-    top: 10px;
-    left: 5%;
+/* Letter Wrapper */
+.letter-wrapper {
+    position: fixed;
+    top: 50%;
+    left: 50%;
     width: 90%;
-    height: 100px;
-    /* Smaller initial height */
-    background-color: white;
-    color: #333;
-    padding: 20px 15px;
-    /* More padding */
-    transition: all 0.8s ease 0.4s;
-    transform: translateY(0);
-    z-index: 1;
+    max-width: 500px;
+    height: auto;
+    max-height: 80vh;
+    z-index: 100;
     opacity: 0;
+    visibility: hidden;
+    transform: translate(-50%, -50%) scale(0.3) translateY(100px);
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+    pointer-events: none;
+}
+
+/* Ensure back button stays above letter */
+.back-button {
+    z-index: 110;
+}
+
+.letter-wrapper.letter-visible {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    z-index: 100;
+}
+
+/* Letter Content */
+.letter {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #fefdf8 0%, #faf8f3 100%);
+    color: #2c2c2c;
+    padding: 40px 35px;
+    border-radius: 8px;
+    box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.5),
+        inset 0 1px 2px rgba(255, 255, 255, 0.8);
     display: flex;
     flex-direction: column;
     text-align: center;
-    overflow: hidden;
-    border-radius: 5px;
+    overflow-y: auto;
+    border: 3px solid #e8c397;
+    position: relative;
 }
 
-.envelope.open .letter {
-    /* Fixed position to ensure it centers on screen regardless of parent */
-    position: fixed !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) !important;
-
-    /* Dimensions */
-    width: 90% !important;
-    max-width: 400px !important;
-    height: auto !important;
-    min-height: 300px;
-    max-height: 80vh !important;
-
-    /* Visuals */
-    background: white !important;
-    z-index: 10000 !important;
-    opacity: 1 !important;
-    border-radius: 10px !important;
-    box-shadow: 0 0 0 100vh rgba(0, 0, 0, 0.6) !important;
-    /* Dim background */
-
-    /* Reset margins/padding */
-    margin: 0 !important;
-
-    /* Layout */
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 30px !important;
-
-    transition: opacity 0.5s ease !important;
+/* Custom scrollbar for letter */
+.letter::-webkit-scrollbar {
+    width: 8px;
 }
 
-/* Remove separate rule to avoid conflicts */
-/* .envelope.open .letter { ... } */
+.letter::-webkit-scrollbar-track {
+    background: rgba(232, 195, 151, 0.1);
+    border-radius: 4px;
+}
 
-/* Ensure content centering */
-.letter .text-content {
+.letter::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #e8c397 0%, #d4b896 100%);
+    border-radius: 4px;
+    box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.1);
+}
+
+.letter::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #f0d1a8 0%, #dcc4a5 100%);
+}
+
+.letter::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image:
+        repeating-linear-gradient(90deg,
+            transparent,
+            transparent 2px,
+            rgba(200, 180, 160, 0.03) 2px,
+            rgba(200, 180, 160, 0.03) 4px),
+        repeating-linear-gradient(0deg,
+            transparent,
+            transparent 2px,
+            rgba(200, 180, 160, 0.02) 2px,
+            rgba(200, 180, 160, 0.02) 4px);
+    pointer-events: none;
+    border-radius: 8px;
+}
+
+.letter-header {
+    margin-bottom: 25px;
+    position: relative;
+    z-index: 1;
+}
+
+.letter-header h1 {
+    font-family: 'Dancing Script', cursive;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #8b5a3c;
+    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5);
+    letter-spacing: 1px;
+}
+
+.letter-body {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
     justify-content: center;
+    margin-bottom: 30px;
+    position: relative;
+    z-index: 1;
 }
 
 .text-content {
     font-family: 'Dancing Script', cursive;
-    font-size: 1.2rem;
-    line-height: 1.6;
-    margin-top: 10px;
-    text-align: left;
+    font-size: 1.1rem;
+    font-weight: 400;
+    line-height: 2;
+    color: #3a3a3a;
+    letter-spacing: 0.5px;
+}
+
+.text-content p {
+    margin-bottom: 15px;
+    line-height: 1.8;
+}
+
+.letter-footer {
+    margin-top: 20px;
+    position: relative;
+    z-index: 1;
+}
+
+.memory-btn {
+    padding: 12px 35px;
+    font-size: 1rem;
+    font-family: 'Dancing Script', cursive;
+    background: linear-gradient(135deg, #e8c397 0%, #d4b896 100%);
+    color: #2c2c2c;
+    border: 2px solid #c9a878;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(232, 195, 151, 0.3);
+    font-weight: 600;
+}
+
+.memory-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(232, 195, 151, 0.5);
+    background: linear-gradient(135deg, #f0d1a8 0%, #dcc4a5 100%);
+}
+
+.memory-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(232, 195, 151, 0.3);
+}
+
+/* Instruction Text */
+.envelope-instruction {
+    position: absolute;
+    bottom: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    opacity: 1;
+    transition: opacity 0.5s ease;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.envelope-instruction p {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: 300;
+}
+
+.envelope-instruction.hidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .envelope-3d {
+        width: min(280px, 80vw);
+        height: min(190px, 60vw);
+    }
+
+    .letter {
+        padding: 30px 25px;
+        max-height: 70vh;
+    }
+
+    .letter-header h1 {
+        font-size: 1.6rem;
+    }
+
+    .text-content {
+        font-size: 1rem;
+    }
+
+    .envelope-instruction {
+        bottom: -50px;
+    }
+
+    .envelope-instruction p {
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .envelope-3d {
+        width: min(250px, 75vw);
+        height: min(170px, 55vw);
+    }
+
+    .letter {
+        padding: 25px 20px;
+        max-height: 65vh;
+    }
+
+    .letter-header h1 {
+        font-size: 1.4rem;
+    }
+
+    .text-content {
+        font-size: 0.95rem;
+        line-height: 1.6;
+    }
+
+    .memory-btn {
+        padding: 10px 25px;
+        font-size: 0.9rem;
+    }
+}
+
+margin-top: 10px;
+text-align: left;
 }
 
 #make-wish-btn {
@@ -570,3 +852,84 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     z-index: 100;
 }
 
+
+/* --- Interactive Memory Scene: Close Button --- */
+.memory-close-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    border-radius: 25px;
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
+    text-decoration: none;
+    user-select: none;
+}
+
+.memory-close-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1);
+}
+
+.memory-close-btn:active {
+    transform: scale(0.98);
+}
+
+.memory-close-btn i {
+    margin-right: 8px;
+}
+
+/* --- Back Button for Letter Scene --- */
+.back-button {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 110;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    background: rgba(232, 195, 151, 0.9);
+    border: 2px solid rgba(232, 195, 151, 1);
+    color: #2c2c2c;
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 4px 15px rgba(232, 195, 151, 0.3);
+    backdrop-filter: blur(10px);
+}
+
+.back-button:hover {
+    background: rgba(240, 209, 168, 1);
+    transform: scale(1.1) translateY(-2px);
+    box-shadow: 0 6px 20px rgba(232, 195, 151, 0.5);
+}
+
+.back-button:active {
+    transform: scale(0.95);
+    box-shadow: 0 2px 8px rgba(232, 195, 151, 0.3);
+}
+
+@media (max-width: 480px) {
+    .back-button {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+        top: 15px;
+        left: 15px;
+    }
+}
