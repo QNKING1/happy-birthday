@@ -48,6 +48,15 @@ class StoryManager {
             }
         });
 
+        // Back button from letter scene to memory scene
+        const backToMemoryBtn = document.getElementById('back-to-memory-btn');
+        if (backToMemoryBtn) {
+            backToMemoryBtn.addEventListener('click', () => {
+                resetEnvelopeState();
+                this.transitionTo('memory');
+            });
+        }
+
         const openLetterBtn = document.getElementById('open-letter-btn');
         if (openLetterBtn) {
             openLetterBtn.addEventListener('click', (e) => {
@@ -140,6 +149,11 @@ class StoryManager {
     transitionTo(sceneName) {
         const targetIndex = this.scenes.indexOf(sceneName);
         if (targetIndex === -1) return;
+
+        // If leaving letter scene, reset envelope state
+        if (this.currentSceneIndex === 2 && sceneName !== 'letter') {
+            resetEnvelopeState();
+        }
 
         // Hide ALL scenes to ensure clean state
         this.scenes.forEach(s => {
@@ -295,206 +309,710 @@ function initFlowerAnimation(onCompleteCallback) {
 }
 
 
+// --- Enhanced Interactive Memory Manager (Raycasting, Zooming & Physics) ---
+class InteractiveMemoryManager {
+    constructor(scene, camera, floatGroup, memories) {
+        this.scene = scene;
+        this.camera = camera;
+        this.floatGroup = floatGroup;
+        this.memories = memories; // Array of memory plane meshes
+
+        // State management
+        this.isZoomedIn = false;
+        this.currentFocusedMemory = null;
+        this.originalCameraPos = { x: camera.position.x, y: camera.position.y, z: camera.position.z };
+        this.floatingPaused = false;
+        this.floatGroupRotationSpeed = 0.002; // Normal rotation speed
+        this.floatGroupRotationSpeedPaused = 0.0001; // Paused rotation speed (very slow)
+
+        // Raycasting
+        this.raycaster = new THREE.Raycaster();
+        this.mouse = new THREE.Vector2();
+        this.mousePos = { x: 0, y: 0 }; // For parallax effect
+
+        // Hover state
+        this.hoveredMemory = null;
+        this.hoveredMemoryOriginalScale = null;
+        this.hoveredMemoryOriginalEmissive = null;
+
+        // Advanced floating physics
+        this.floatTime = 0;
+        this.floatingEnabled = true;
+        this.cardPhysicsData = new Map(); // Store each card's physics data
+
+        // Parallax settings
+        this.parallaxStrength = 0.3; // How much fog/background moves (0-1)
+        this.parallaxOriginalFogColor = this.scene.fog ? this.scene.fog.color.getHex() : 0x000000;
+
+        // Configuration
+        this.zoomDistance = 80; // Distance from card when zoomed in
+        this.zoomDuration = 1.2; // GSAP animation duration (seconds)
+
+        this.init();
+    }
+
+    init() {
+        this.setupMouseListeners();
+        this.setupCloseButton();
+        this.setupKeyboardListeners();
+    }
+
+    setupMouseListeners() {
+        document.addEventListener('mousemove', (event) => this.onMouseMove(event));
+        document.addEventListener('click', (event) => this.onMouseClick(event));
+    }
+
+    setupKeyboardListeners() {
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && this.isZoomedIn) {
+                this.closeZoom();
+            }
+        });
+    }
+
+    setupCloseButton() {
+        // Create close button UI
+        if (!document.getElementById('memory-close-btn')) {
+            const closeBtn = document.createElement('button');
+            closeBtn.id = 'memory-close-btn';
+            closeBtn.innerHTML = '<i class="fas fa-times"></i> Close';
+            closeBtn.className = 'memory-close-btn';
+            closeBtn.style.position = 'fixed';
+            closeBtn.style.top = '20px';
+            closeBtn.style.right = '20px';
+            closeBtn.style.zIndex = '1000';
+            closeBtn.style.padding = '10px 20px';
+            closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+            closeBtn.style.border = '2px solid rgba(255, 255, 255, 0.3)';
+            closeBtn.style.color = '#fff';
+            closeBtn.style.borderRadius = '25px';
+            closeBtn.style.cursor = 'pointer';
+            closeBtn.style.fontFamily = "'Outfit', sans-serif";
+            closeBtn.style.fontSize = '14px';
+            closeBtn.style.opacity = '0';
+            closeBtn.style.pointerEvents = 'none';
+            closeBtn.style.transition = 'all 0.3s ease';
+
+            closeBtn.addEventListener('click', () => this.closeZoom());
+            closeBtn.addEventListener('mouseenter', function () {
+                this.style.background = 'rgba(255, 255, 255, 0.2)';
+                this.style.borderColor = 'rgba(255, 255, 255, 0.5)';
+            });
+            closeBtn.addEventListener('mouseleave', function () {
+                this.style.background = 'rgba(255, 255, 255, 0.1)';
+                this.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+            });
+
+            document.body.appendChild(closeBtn);
+        }
+    }
+
+    onMouseMove(event) {
+        // Update mouse position for raycasting
+        this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        // Store mouse position for parallax effect (normalize to -1 to 1)
+        this.mousePos.x = (event.clientX / window.innerWidth) - 0.5;
+        this.mousePos.y = (event.clientY / window.innerHeight) - 0.5;
+
+        // Perform raycasting for hover detection
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const intersects = this.raycaster.intersectObjects(this.memories);
+
+        // Handle hover effects
+        if (intersects.length > 0) {
+            const hoveredMemory = intersects[0].object;
+
+            if (this.hoveredMemory !== hoveredMemory) {
+                // Reset previous hovered memory
+                if (this.hoveredMemory && this.hoveredMemory !== this.currentFocusedMemory) {
+                    gsap.to(this.hoveredMemory.scale, {
+                        x: this.hoveredMemoryOriginalScale.x,
+                        y: this.hoveredMemoryOriginalScale.y,
+                        z: this.hoveredMemoryOriginalScale.z,
+                        duration: 0.3,
+                        ease: 'power2.out'
+                    });
+                    gsap.to(this.hoveredMemory.material, {
+                        opacity: 0.8,
+                        duration: 0.3
+                    });
+
+                    // Remove glow effect
+                    if (this.hoveredMemory.material.emissive) {
+                        gsap.to(this.hoveredMemory.material.emissive, {
+                            r: this.hoveredMemoryOriginalEmissive.r,
+                            g: this.hoveredMemoryOriginalEmissive.g,
+                            b: this.hoveredMemoryOriginalEmissive.b,
+                            duration: 0.3
+                        });
+                        this.hoveredMemory.material.needsUpdate = true;
+                    }
+                }
+
+                // New hovered memory
+                this.hoveredMemory = hoveredMemory;
+                this.hoveredMemoryOriginalScale = { ...this.hoveredMemory.scale };
+
+                // Store original emissive color
+                this.hoveredMemoryOriginalEmissive = {
+                    r: this.hoveredMemory.material.emissive.r,
+                    g: this.hoveredMemory.material.emissive.g,
+                    b: this.hoveredMemory.material.emissive.b
+                };
+
+                // Scale up and brighten on hover
+                gsap.to(this.hoveredMemory.scale, {
+                    x: 1.15,
+                    y: 1.15,
+                    z: 1.15,
+                    duration: 0.3,
+                    ease: 'back.out'
+                });
+                gsap.to(this.hoveredMemory.material, {
+                    opacity: 1.0,
+                    duration: 0.3
+                });
+
+                // Add subtle glow (emissive effect - white light)
+                gsap.to(this.hoveredMemory.material.emissive, {
+                    r: 0.35,
+                    g: 0.35,
+                    b: 0.35,
+                    duration: 0.3
+                });
+                this.hoveredMemory.material.needsUpdate = true;
+
+                // Update cursor
+                document.body.style.cursor = 'pointer';
+            }
+        } else {
+            // No intersection - reset hovered state
+            if (this.hoveredMemory && this.hoveredMemory !== this.currentFocusedMemory) {
+                gsap.to(this.hoveredMemory.scale, {
+                    x: this.hoveredMemoryOriginalScale.x,
+                    y: this.hoveredMemoryOriginalScale.y,
+                    z: this.hoveredMemoryOriginalScale.z,
+                    duration: 0.3,
+                    ease: 'power2.out'
+                });
+                gsap.to(this.hoveredMemory.material, {
+                    opacity: 0.8,
+                    duration: 0.3
+                });
+
+                // Remove glow
+                if (this.hoveredMemory.material.emissive && this.hoveredMemoryOriginalEmissive) {
+                    gsap.to(this.hoveredMemory.material.emissive, {
+                        r: this.hoveredMemoryOriginalEmissive.r,
+                        g: this.hoveredMemoryOriginalEmissive.g,
+                        b: this.hoveredMemoryOriginalEmissive.b,
+                        duration: 0.3
+                    });
+                    this.hoveredMemory.material.needsUpdate = true;
+                }
+            }
+
+            this.hoveredMemory = null;
+            document.body.style.cursor = 'default';
+        }
+    }
+
+    onMouseClick(event) {
+        // Skip if clicking UI elements
+        if (event.target.closest('.memory-ui') || event.target.closest('.memory-close-btn') ||
+            event.target.closest('#memory-close-btn')) {
+            return;
+        }
+
+        // Perform raycasting for click detection
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const intersects = this.raycaster.intersectObjects(this.memories);
+
+        if (intersects.length > 0) {
+            const clickedMemory = intersects[0].object;
+
+            if (this.isZoomedIn && this.currentFocusedMemory === clickedMemory) {
+                // Clicking focused card again closes it
+                this.closeZoom();
+            } else if (this.isZoomedIn && this.currentFocusedMemory !== clickedMemory) {
+                // Transition to new card
+                this.closeZoom(() => {
+                    this.zoomIntoMemory(clickedMemory);
+                });
+            } else {
+                // Initial zoom
+                this.zoomIntoMemory(clickedMemory);
+            }
+        }
+    }
+
+    zoomIntoMemory(memory) {
+        if (this.isZoomedIn) return; // Prevent multiple zooms
+
+        this.isZoomedIn = true;
+        this.currentFocusedMemory = memory;
+
+        // Pause floating animation
+        this.floatingPaused = true;
+
+        // Get card world position
+        const cardPosition = new THREE.Vector3();
+        memory.getWorldPosition(cardPosition);
+
+        // Calculate camera position looking at card
+        const direction = new THREE.Vector3();
+        direction.subVectors(cardPosition, this.camera.position).normalize();
+        const cameraTargetPos = new THREE.Vector3();
+        cameraTargetPos.subVectors(cardPosition, direction.multiplyScalar(this.zoomDistance));
+
+        // Rotate card to face camera perfectly (flatten rotation)
+        const cardTargetRotation = {
+            x: 0,
+            y: 0,
+            z: 0
+        };
+
+        // Animate card rotation for perfect alignment
+        gsap.to(memory.rotation, {
+            x: cardTargetRotation.x,
+            y: cardTargetRotation.y,
+            z: cardTargetRotation.z,
+            duration: this.zoomDuration,
+            ease: 'power2.inOut'
+        });
+
+        // Animate camera with GSAP
+        gsap.to(this.camera.position, {
+            x: cameraTargetPos.x,
+            y: cameraTargetPos.y,
+            z: cameraTargetPos.z,
+            duration: this.zoomDuration,
+            ease: 'power2.inOut',
+            onUpdate: () => {
+                this.camera.lookAt(cardPosition);
+            }
+        });
+
+        // Show close button
+        const closeBtn = document.getElementById('memory-close-btn');
+        if (closeBtn) {
+            gsap.to(closeBtn, {
+                opacity: 1,
+                pointerEvents: 'auto',
+                duration: 0.5,
+                delay: 0.3
+            });
+        }
+    }
+
+    closeZoom(callback) {
+        if (!this.isZoomedIn) return;
+
+        this.isZoomedIn = false;
+
+        // Resume floating animation
+        this.floatingPaused = false;
+
+        // Get current focused card and reset its rotation
+        const focusedCard = this.currentFocusedMemory;
+        this.currentFocusedMemory = null;
+
+        // Animate card back to random rotation (resume floating rotation)
+        if (focusedCard) {
+            gsap.to(focusedCard.rotation, {
+                x: Math.random() * 0.5 - 0.25,
+                y: Math.random() * 0.5 - 0.25,
+                z: Math.random() * 0.5 - 0.25,
+                duration: this.zoomDuration,
+                ease: 'power2.inOut'
+            });
+        }
+
+        // Animate camera back to original position
+        gsap.to(this.camera.position, {
+            x: this.originalCameraPos.x,
+            y: this.originalCameraPos.y,
+            z: this.originalCameraPos.z,
+            duration: this.zoomDuration,
+            ease: 'power2.inOut',
+            onUpdate: () => {
+                this.camera.lookAt(this.scene.position);
+            },
+            onComplete: () => {
+                if (callback) callback();
+            }
+        });
+
+        // Hide close button
+        const closeBtn = document.getElementById('memory-close-btn');
+        if (closeBtn) {
+            gsap.to(closeBtn, {
+                opacity: 0,
+                pointerEvents: 'none',
+                duration: 0.3
+            });
+        }
+    }
+
+    // Modularity: Adjust zoom distance
+    setZoomDistance(distance) {
+        this.zoomDistance = distance;
+    }
+
+    // Modularity: Adjust animation speed
+    setZoomDuration(duration) {
+        this.zoomDuration = duration;
+    }
+
+    // Advanced floating physics - improved smooth motion
+    updateFloatingPhysics() {
+        // Increment time for sine-wave based floating
+        this.floatTime += 0.001;
+
+        // If paused, slow rotation significantly (keep some subtle motion)
+        const rotationSpeed = this.floatingPaused ? this.floatGroupRotationSpeedPaused : this.floatGroupRotationSpeed;
+
+        // Update each memory card with smooth sine-wave floating motion
+        this.memories.forEach((memory, index) => {
+            // Create unique physics data if not exists
+            if (!this.cardPhysicsData.has(index)) {
+                this.cardPhysicsData.set(index, {
+                    amplitude: 0.3 + Math.random() * 0.2,
+                    frequency: 0.5 + Math.random() * 0.3,
+                    phase: Math.random() * Math.PI * 2,
+                    axisX: Math.random() - 0.5,
+                    axisY: Math.random() - 0.5,
+                    axisZ: Math.random() - 0.5
+                });
+            }
+
+            const physics = this.cardPhysicsData.get(index);
+
+            // Calculate sine-wave based motion for smooth floating
+            const floatingMotion = Math.sin(this.floatTime * physics.frequency + physics.phase) * physics.amplitude;
+
+            // Apply subtle rotation
+            memory.rotation.x += rotationSpeed * physics.axisX * (this.floatingPaused ? 0.3 : 1);
+            memory.rotation.y += rotationSpeed * physics.axisY * (this.floatingPaused ? 0.3 : 1);
+            memory.rotation.z += rotationSpeed * physics.axisZ * (this.floatingPaused ? 0.3 : 1);
+
+            // Store original position if not stored
+            if (!memory.userData.originalPos) {
+                memory.userData.originalPos = {
+                    x: memory.position.x,
+                    y: memory.position.y,
+                    z: memory.position.z
+                };
+            }
+
+            // Apply floating motion to position
+            memory.position.y = memory.userData.originalPos.y + floatingMotion;
+        });
+    }
+
+    // Parallax effect - camera/fog responds to mouse position
+    updateParallaxEffect(camera, fog) {
+        if (this.isZoomedIn) return; // Disable parallax when zoomed in
+
+        // Calculate parallax offset based on mouse position
+        const parallaxOffsetX = this.mousePos.x * this.parallaxStrength * 5;
+        const parallaxOffsetY = -this.mousePos.y * this.parallaxStrength * 5;
+
+        // Smoothly animate camera offset for parallax
+        gsap.to(camera.position, {
+            x: parallaxOffsetX,
+            y: parallaxOffsetY,
+            duration: 0.5,
+            overwrite: 'auto'
+        });
+
+        // Optional: Apply subtle fog color change based on mouse (immersive effect)
+        // This creates a depth-based color shift
+        const fogTint = 0.15 + this.mousePos.x * 0.1;
+        if (fog) {
+            // Fog color responds subtly to mouse position
+            fog.color.setHSL(0, 0, Math.max(0, Math.min(1, fogTint)));
+        }
+    }
+
+    // Initialize physics data for all memory cards
+    initializeCardPhysics(memories) {
+        memories.forEach((memory, index) => {
+            // Pre-initialize physics data for smooth startup
+            this.cardPhysicsData.set(index, {
+                amplitude: 0.3 + Math.random() * 0.2,
+                frequency: 0.5 + Math.random() * 0.3,
+                phase: Math.random() * Math.PI * 2,
+                axisX: Math.random() - 0.5,
+                axisY: Math.random() - 0.5,
+                axisZ: Math.random() - 0.5
+            });
+
+            // Store original position
+            memory.userData.originalPos = {
+                x: memory.position.x,
+                y: memory.position.y,
+                z: memory.position.z
+            };
+        });
+    }
+
+    // Cleanup on scene change
+    destroy() {
+        document.removeEventListener('mousemove', (event) => this.onMouseMove(event));
+        document.removeEventListener('click', (event) => this.onMouseClick(event));
+        document.removeEventListener('keydown', (event) => this.onMouseMove(event));
+    }
+}
+
+
 // --- Scene 2: Memory Cloud (Three.js) ---
 function initMemoryScene() {
     const container = document.getElementById('scene-memory');
     if (!container) return;
 
-    // SCENE
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x000000, 0.001);
 
-    // CAMERA
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 250; /* Moved back to see cloud */
+    camera.position.z = 250;
 
-    // RENDERER
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     container.appendChild(renderer.domElement);
 
-    // CONTROLS (OrbitControls via CDN usually, but simple mouse drag is easier to implement raw if needed)
-    // We will assume OrbitControls is available via CDN or implement simple rotation.
-    // Let's implement simple mouse move rotation.
-    let mouseX = 0;
-    let mouseY = 0;
-    const windowHalfX = window.innerWidth / 2;
-    const windowHalfY = window.innerHeight / 2;
-
-    document.addEventListener('mousemove', (event) => {
-        mouseX = (event.clientX - windowHalfX) * 0.1;
-        mouseY = (event.clientY - windowHalfY) * 0.1;
-    });
-
-    // OBJECTS (Cloud of Planes)
     const floatGroup = new THREE.Group();
     scene.add(floatGroup);
 
-    // Use simple relative paths - ensure web server root is correct
-    // If running from file:// protocol, this might fail due to CORS.
-    // User should run via a local server (e.g., Live Server).
-    const placeholderImages = [
-        'img1.jpg',
-        'img2.jpg',
-        'img1.jpg',
-        'img2.jpg'
-    ];
-
-    // Load textures with Debugging
     const textureLoader = new THREE.TextureLoader();
-    const textures = [];
+    const placeholderImages = ['img1.jpg', 'img2.jpg'];
+    const textures = placeholderImages.map(url => textureLoader.load(url));
 
-    placeholderImages.forEach(url => {
-        textureLoader.load(url, (tex) => {
-            textures.push(tex);
-            // Re-render or update material if needed
-        }, undefined, (err) => {
-            console.error("FAILED to load texture:", url, err);
-            // Fallback color logic handled in material if map is missing
-        });
-    });
+    const geometry = new THREE.PlaneGeometry(25, 35);
 
-    // Wait for textures or use placeholder color
-    // Since load is async, we'll just push to array and handle missing textures in loop gracefully
-
-    const geometry = new THREE.PlaneGeometry(20, 30); // Portrait aspect ratio
-
-    const group = new THREE.Group();
-    scene.add(group);
-
-    // Initial planes
+    // Cards create karna
     for (let i = 0; i < 40; i++) {
-        // We might not have textures loaded yet, but we can assign later or default
         const material = new THREE.MeshBasicMaterial({
-            color: 0xffffff, // Default white
+            map: textures[i % textures.length],
             side: THREE.DoubleSide,
             transparent: true,
-            opacity: 0.8
-        });
-
-        // HACK: Assign texture later or check if array has items
-        // Since this runs once, let's use a delayed assignment in animate check or just use what we have?
-        // Better: Use a placeholder and update.
-        // For now, let's just cycle through what we expect to have.
-
-        textureLoader.load(placeholderImages[i % 4], (tex) => {
-            material.map = tex;
-            material.needsUpdate = true;
-            material.color.setHex(0xffffff); // Reset color to white so texture shows
-        }, undefined, () => {
-            material.color.setHex(Math.random() * 0xff3333); // Reddish fallback
+            opacity: 0.8,
+            color: 0xffffff
         });
 
         const mesh = new THREE.Mesh(geometry, material);
-        // ... positioning logic ...
-        mesh.position.x = Math.random() * 200 - 100;
-        mesh.position.y = Math.random() * 100 - 50;
-        mesh.position.z = Math.random() * 200 - 100;
+        mesh.position.set(Math.random() * 400 - 200, Math.random() * 200 - 100, Math.random() * 200 - 100);
+        mesh.rotation.set(Math.random() * 0.5, Math.random() * 0.5, Math.random() * 0.5);
 
-        mesh.rotation.x = Math.random() * 0.5;
-        mesh.rotation.y = Math.random() * 0.5;
-        mesh.rotation.z = Math.random() * 0.5;
+        // Custom data for animation
+        mesh.userData = {
+            originalPos: mesh.position.clone(),
+            originalRot: mesh.rotation.clone(),
+            phase: Math.random() * Math.PI * 2
+        };
 
-        group.add(mesh);
+        floatGroup.add(mesh);
     }
 
-    // BALLOONS
-    const balloonGeo = new THREE.SphereGeometry(10, 32, 32);
-    const balloonMat = new THREE.MeshPhongMaterial({ color: 0xff0000, shininess: 100 });
-    const balloon = new THREE.Mesh(balloonGeo, balloonMat);
-    balloon.position.set(-80, 50, 50);
-    scene.add(balloon);
+    // Lights
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
-    const light = new THREE.PointLight(0xffffff, 1, 500);
-    light.position.set(50, 50, 50);
-    scene.add(light);
+    // Interaction Variables
+    const mouse = new THREE.Vector2();
+    const raycaster = new THREE.Raycaster();
+    let isZoomed = false;
+    let focusedObj = null;
 
-    const ambientLight = new THREE.AmbientLight(0x404040);
-    scene.add(ambientLight);
+    // Mouse Move for Hover & Parallax
+    window.addEventListener('mousemove', (event) => {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-    // ANIMATION LOOP
+        // Hover Effect
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(floatGroup.children);
+
+        if (intersects.length > 0 && !isZoomed) {
+            document.body.style.cursor = 'pointer';
+            gsap.to(intersects[0].object.scale, { x: 1.2, y: 1.2, duration: 0.3 });
+        } else {
+            document.body.style.cursor = 'default';
+            floatGroup.children.forEach(child => {
+                if (child !== focusedObj) gsap.to(child.scale, { x: 1, y: 1, duration: 0.3 });
+            });
+        }
+    });
+
+    // Click to Zoom
+    window.addEventListener('click', () => {
+        if (isZoomed) {
+            returnToCloud();
+            return;
+        }
+
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(floatGroup.children);
+
+        if (intersects.length > 0) {
+            focusedObj = intersects[0].object;
+            zoomIn(focusedObj);
+        }
+    });
+
+    function zoomIn(obj) {
+        isZoomed = true;
+        // Move camera in front of card
+        const targetPos = obj.position.clone().add(new THREE.Vector3(0, 0, 50));
+
+        gsap.to(camera.position, {
+            x: obj.position.x,
+            y: obj.position.y,
+            z: obj.position.z + 60,
+            duration: 1.5,
+            ease: "power2.inOut"
+        });
+
+        gsap.to(obj.rotation, { x: 0, y: 0, z: 0, duration: 1 });
+        // Show Close Button (Optional: aap HTML mein button dikha sakte hain)
+    }
+
+    function returnToCloud() {
+        isZoomed = false;
+        gsap.to(camera.position, { x: 0, y: 0, z: 250, duration: 1.5, ease: "power2.inOut" });
+        if (focusedObj) {
+            gsap.to(focusedObj.rotation, {
+                x: focusedObj.userData.originalRot.x,
+                y: focusedObj.userData.originalRot.y,
+                z: focusedObj.userData.originalRot.z,
+                duration: 1
+            });
+        }
+        focusedObj = null;
+    }
+
     const animate = () => {
         requestAnimationFrame(animate);
 
-        camera.position.x += (mouseX - camera.position.x) * 0.05;
-        camera.position.y += (-mouseY - camera.position.y) * 0.05;
-        camera.lookAt(scene.position);
-
-        floatGroup.rotation.y += 0.002;
-
-        // Float logic
-        floatGroup.children.forEach(obj => {
-            obj.position.add(obj.userData.velocity);
-
-            // Bounds check
-            if (Math.abs(obj.position.x) > 100) obj.userData.velocity.x *= -1;
-            if (Math.abs(obj.position.y) > 60) obj.userData.velocity.y *= -1;
-            if (Math.abs(obj.position.z) > 100) obj.userData.velocity.z *= -1;
-        });
+        if (!isZoomed) {
+            // Natural Floating Movement
+            floatGroup.children.forEach(obj => {
+                const time = Date.now() * 0.001;
+                obj.position.y = obj.userData.originalPos.y + Math.sin(time + obj.userData.phase) * 5;
+            });
+            floatGroup.rotation.y += 0.001;
+        }
 
         renderer.render(scene, camera);
     };
 
     animate();
-
-    // Handle Window Resize
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
 }
 
 
-// --- Scene 3: Letter Logic ---
-// --- Scene 3: Letter Logic ---
+// --- Scene 3: Letter Logic (Enhanced 3D with GSAP) ---
 function initLetterInteraction() {
-    // We target the CONTAINER to ensure clicks are captured anywhere
     const envelopeContainer = document.querySelector('.envelope-container');
-    const envelope = document.querySelector('.envelope');
+    const envelope3D = document.querySelector('.envelope-3d');
+    const letterWrapper = document.querySelector('.letter-wrapper');
     const textContentEl = document.querySelector('.text-content');
-    const originalTextHTML = textContentEl.innerHTML;
+    const instructionEl = document.querySelector('.envelope-instruction');
+    const makeWishBtn = document.getElementById('make-wish-btn');
 
-    textContentEl.innerHTML = ''; // Clear for Typed.js
+    let isAnimating = false;
+    let isOpen = false;
 
-    // Add listener to the CONTAINER
+    // Clear text content for Typed.js
+    textContentEl.innerHTML = '';
+
+    // Add click listener to envelope
     envelopeContainer.addEventListener('click', function () {
-        if (envelope.classList.contains('open')) return;
+        if (isOpen || isAnimating) return;
 
-        envelope.classList.add('open');
-        // Hide instruction
-        const instruction = document.querySelector('.instruction');
-        if (instruction) instruction.style.opacity = '0';
+        isAnimating = true;
+        isOpen = true;
 
-        // Start Typed.js after animation
-        setTimeout(() => {
-            try {
-                if (typeof Typed !== 'undefined') {
-                    new Typed('.text-content', {
-                        strings: [
-                            "Wishing you a day filled with laughter...",
-                            "You are special not just today, but every day.",
-                            "May this year bring you closer to your dreams.",
-                            "Happy Birthday! ^1000"
-                        ],
-                        typeSpeed: 30,
-                        backSpeed: 10,
-                        showCursor: false,
-                        onComplete: () => {
-                            fadeInWishButton();
-                        }
-                    });
-                } else {
-                    textContentEl.innerHTML = originalTextHTML;
-                    fadeInWishButton();
-                }
-            } catch (e) {
-                textContentEl.innerHTML = originalTextHTML;
+        // Create GSAP timeline for smooth sequential animations
+        const tl = gsap.timeline();
+
+        // Step 1: Flip the envelope flap open (0.7s)
+        tl.to('.envelope-flap', {
+            rotationX: 180,
+            duration: 0.7,
+            ease: 'power2.out'
+        }, 0);
+
+        // Step 2: Hide the envelope decoration heart during flip
+        tl.to('.envelope-decoration', {
+            opacity: 0,
+            duration: 0.3
+        }, 0);
+
+        // Step 3: Hide the instruction text
+        tl.to('.envelope-instruction', {
+            opacity: 0,
+            visibility: 'hidden',
+            duration: 0.3
+        }, 0);
+
+        // Step 4: Slide and expand the letter from inside the envelope (starts at 0.5s, overlaps with flap)
+        tl.to('.letter-wrapper', {
+            opacity: 1,
+            visibility: 'visible',
+            transform: 'translate(-50%, -50%) scale(1) translateY(0px)',
+            duration: 0.8,
+            ease: 'back.out(1.2)',
+            onStart: () => {
+                letterWrapper.classList.add('letter-visible');
+            }
+        }, 0.2); // Start after brief delay to let flap start opening
+
+        // Step 5: Apply class to envelope for styling
+        tl.add(() => {
+            envelope3D.classList.add('envelope-open');
+        }, 0);
+
+        // Step 6: Start typewriter effect after letter is fully visible (at 1.2s)
+        tl.add(() => {
+            startTypewriterEffect();
+        }, 1.2);
+
+        tl.eventCallback('complete', () => {
+            isAnimating = false;
+        });
+    });
+
+    function startTypewriterEffect() {
+        try {
+            if (typeof Typed !== 'undefined') {
+                new Typed('.text-content', {
+                    strings: [
+                        "Wishing you a day filled with laughter, love, and starlight...",
+                        "You are truly special not just today, but every single day.",
+                        "May this year bring you closer to all your dreams.",
+                        "Happy Birthday! ^1000"
+                    ],
+                    typeSpeed: 25,
+                    backSpeed: 5,
+                    backDelay: 1500,
+                    showCursor: true,
+                    cursorChar: "✦",
+                    onComplete: () => {
+                        fadeInWishButton();
+                    }
+                });
+            } else {
+                textContentEl.innerHTML = 'Wishing you a day filled with laughter, love, and starlight!<br>You are truly special not just today, but every single day.';
                 fadeInWishButton();
             }
-        }, 1000);
-    });
+        } catch (e) {
+            console.error('Typed.js error:', e);
+            textContentEl.innerHTML = 'Wishing you a day filled with laughter, love, and starlight!<br>You are truly special not just today, but every single day.';
+            fadeInWishButton();
+        }
+    }
 }
 
 function fadeInWishButton() {
@@ -509,6 +1027,64 @@ function fadeInWishButton() {
             btn.style.pointerEvents = 'auto'; // Ensure clickable
         }
     });
+}
+
+// Reset envelope state when transitioning away
+function resetEnvelopeState() {
+    const envelope3D = document.querySelector('.envelope-3d');
+    const letterWrapper = document.querySelector('.letter-wrapper');
+    const envelopeFlap = document.querySelector('.envelope-flap');
+    const textContent = document.querySelector('.text-content');
+    const envelopeDecoration = document.querySelector('.envelope-decoration');
+    const envelopeInstruction = document.querySelector('.envelope-instruction');
+
+    // Kill any running GSAP animations on these elements
+    gsap.killTweensOf('.envelope-3d');
+    gsap.killTweensOf('.envelope-flap');
+    gsap.killTweensOf('.letter-wrapper');
+    gsap.killTweensOf('.envelope-decoration');
+    gsap.killTweensOf('.envelope-instruction');
+
+    // Reset classes
+    if (envelope3D) envelope3D.classList.remove('envelope-open');
+    if (letterWrapper) letterWrapper.classList.remove('letter-visible');
+
+    // Reset inline styles
+    if (envelopeFlap) {
+        envelopeFlap.style.transform = '';
+        envelopeFlap.style.zIndex = '';
+    }
+    if (letterWrapper) {
+        letterWrapper.style.opacity = '';
+        letterWrapper.style.visibility = '';
+        letterWrapper.style.transform = '';
+        letterWrapper.style.pointerEvents = '';
+    }
+    if (envelopeDecoration) {
+        envelopeDecoration.style.opacity = '';
+    }
+    if (envelopeInstruction) {
+        envelopeInstruction.style.opacity = '';
+        envelopeInstruction.style.visibility = '';
+    }
+
+    // Clear text content
+    if (textContent) {
+        textContent.innerHTML = '';
+    }
+
+    // Kill Typed.js instance if it exists
+    if (window.Typed && window.Typed.instances) {
+        window.Typed.instances.forEach(instance => instance.destroy());
+    }
+
+    // Reset button
+    const makeWishBtn = document.getElementById('make-wish-btn');
+    if (makeWishBtn) {
+        makeWishBtn.style.opacity = '0';
+        makeWishBtn.style.display = 'none';
+        makeWishBtn.style.pointerEvents = 'none';
+    }
 }
 
 
