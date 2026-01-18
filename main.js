@@ -1551,8 +1551,7 @@ function initLetterInteraction() {
     const envelope3D = document.querySelector('.envelope-3d');
     const letterWrapper = document.querySelector('.letter-wrapper');
     const textContentEl = document.querySelector('.text-content');
-    const instructionEl = document.querySelector('.envelope-instruction');
-    const makeWishBtn = document.getElementById('make-wish-btn');
+    const envelopeFlap = document.querySelector('.envelope-flap');
 
     let isAnimating = false;
     let isOpen = false;
@@ -1568,53 +1567,75 @@ function initLetterInteraction() {
         isOpen = true;
 
         // Create GSAP timeline for smooth sequential animations
-        const tl = gsap.timeline();
+        const tl = gsap.timeline({
+            onComplete: () => {
+                // Architectural switch to Reading Mode
+                // Clear GSAP transforms to allow CSS .reading-mode class to take over 100%
+                gsap.set(letterWrapper, { clearProps: "all" });
+                letterWrapper.classList.add('reading-mode');
 
-        // Step 1: Flip the envelope flap open (0.7s)
-        tl.to('.envelope-flap', {
-            rotationX: 180,
-            duration: 0.7,
-            ease: 'power2.out'
-        }, 0);
-
-        // Step 2: Hide the envelope decoration heart during flip
-        tl.to('.envelope-decoration', {
-            opacity: 0,
-            duration: 0.3
-        }, 0);
-
-        // Step 3: Hide the instruction text
-        tl.to('.envelope-instruction', {
-            opacity: 0,
-            visibility: 'hidden',
-            duration: 0.3
-        }, 0);
-
-        // Step 4: Slide and expand the letter from inside the envelope (starts at 0.5s, overlaps with flap)
-        tl.to('.letter-wrapper', {
-            opacity: 1,
-            visibility: 'visible',
-            transform: 'translate(-50%, -50%) scale(1)',
-            duration: 0.8,
-            ease: 'back.out(1.5)', // Slight wobble for "light paper" feel
-            onStart: () => {
-                letterWrapper.classList.add('letter-visible');
+                isAnimating = false;
+                startTypewriterEffect();
             }
-        }, 0.2); // Start after brief delay to let flap start opening
+        });
 
-        // Step 5: Apply class to envelope for styling
-        tl.add(() => {
-            envelope3D.classList.add('envelope-open');
+        // --- SEQUENCE START (State: Envelope Context) ---
+
+        // 1. Initial State
+        tl.set(envelopeFlap, { zIndex: 10 });
+        tl.set(letterWrapper, {
+            opacity: 0,
+            visibility: 'visible',
+            y: 0, // start inside
+            scale: 0.8,
+            zIndex: 5
+        });
+
+        // 2. Rotate Flap Open
+        tl.to(envelopeFlap, {
+            rotationX: 180,
+            duration: 0.8,
+            ease: 'power2.inOut'
         }, 0);
 
-        // Step 6: Start typewriter effect after letter is fully visible (at 1.2s)
-        tl.add(() => {
-            startTypewriterEffect();
-        }, 1.2);
+        // 3. Hide Decors
+        tl.to(['.envelope-decoration', '.envelope-instruction'], {
+            opacity: 0,
+            duration: 0.3,
+            onComplete: () => {
+                gsap.set(['.envelope-decoration', '.envelope-instruction'], { visibility: 'hidden' });
+            }
+        }, 0);
 
-        tl.eventCallback('complete', () => {
-            isAnimating = false;
-        });
+        // 4. Tuck Flap Behind
+        tl.set(envelopeFlap, { zIndex: 1 }, 0.6);
+
+        // 5. Letter Slide Up (Relative to Envelope)
+        // We use a combination of opacity and translateY for standard "exiting" feel
+        tl.to(letterWrapper, {
+            opacity: 1,
+            y: -150, // slide up out of pocket
+            scale: 0.9,
+            duration: 0.7,
+            ease: 'power2.out',
+            onStart: () => {
+                envelope3D.classList.add('envelope-open');
+            }
+        }, 0.5);
+
+        // 6. Final Reach to Viewport Center (While still absolute)
+        // This is a "visual bridge" before the class switch.
+        // We simulate the fixed center position.
+        const vh = window.innerHeight;
+        const rect = envelopeContainer.getBoundingClientRect();
+        const distToCenter = (vh / 2) - (rect.top + rect.height / 2);
+
+        tl.to(letterWrapper, {
+            y: distToCenter, // move to screen center
+            scale: 1,
+            duration: 0.8,
+            ease: 'power3.inOut'
+        }, "+=0.1");
     });
 
     function startTypewriterEffect() {
@@ -1622,20 +1643,17 @@ function initLetterInteraction() {
             if (typeof Typed !== 'undefined') {
                 new Typed('.text-content', {
                     strings: [
-                        "Dearest,<br><br>Wishing you a day filled with laughter,<br>love, and starlight...^1000<br><br>You are truly special not just today,<br>but every single day.^1000<br><br>May this year bring you closer<br>to all your dreams.<br><br>Happy Birthday! ^1000"
+                        "Dearest,<br><br>Wishing you a day filled with laughter,<br>love, and starlight...<br><br>^500You are truly special not just today,<br>but every single day.<br><br>^500May this year bring you closer<br>to all your dreams.<br><br>^1000Happy Birthday!"
                     ],
-                    typeSpeed: 45,
-                    startDelay: 500,
-                    backSpeed: 0, // Fix jumpy text: Instant backspace
-                    smartBackspace: true,
-                    backDelay: 500, // Reduced delay
-                    showCursor: true,
-                    cursorChar: "✎",
+                    typeSpeed: 40,
+                    startDelay: 300,
+                    showCursor: false, // EXPLICITLY DISABLED
                     onComplete: () => {
                         fadeInWishButton();
                     }
                 });
             } else {
+                // Fallback
                 textContentEl.innerHTML = 'Wishing you a day filled with laughter, love, and starlight!<br>You are truly special not just today, but every single day.';
                 fadeInWishButton();
             }
@@ -1736,13 +1754,13 @@ function initFinale() {
         }
     }, 2000); // 2-second delay as requested
 
-    // 2. Drop the candle AFTER the cake builds (approx 3 seconds later)
+    // 2. Drop the candle AFTER the cake builds (approx 5 seconds later)
     setTimeout(() => {
         const candle = document.querySelector('.candle');
         if (candle) {
             candle.classList.add('drop-in'); // This triggers the CSS animation
         }
-    }, 3000);
+    }, 5000); // Increased from 3000 to 5000 to sync with cake delay
 
     // --- Existing Candle Blow Logic Below ---
     const approaches = ['.candle', '.cake-container .candle'];
