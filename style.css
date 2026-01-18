@@ -602,12 +602,11 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     cursor: pointer;
     perspective: 1200px;
     z-index: 35;
-    width: 100%;
-    max-width: 600px;
-    height: 100%;
-    max-height: 500px;
+    width: 320px;
+    /* Match envelope-3d width */
+    height: 220px;
+    /* Match envelope-3d height */
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
 }
@@ -741,37 +740,46 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
 /* Envelope opened state */
 .envelope-3d.envelope-open .envelope-flap {
     transform: rotateX(180deg);
-    z-index: 1;
 }
 
-/* Letter Wrapper */
+/* Letter Wrapper - STATE 1: Envelope Context */
 .letter-wrapper {
+    position: absolute;
+    top: 5px;
+    /* Stay inside envelope visually */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 95%;
+    /* Responsive width within envelope */
+    height: 90%;
+    z-index: 2;
+    /* Between front face and flap */
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+/* Letter Wrapper - STATE 2: Reading Mode (Activated after animation) */
+.letter-wrapper.reading-mode {
     position: fixed;
     top: 50%;
     left: 50%;
-    width: 95vw;
-    max-width: 500px;
+    width: min(90vw, 520px);
     height: auto;
     max-height: 85vh;
-    z-index: 100;
-    opacity: 0;
-    visibility: hidden;
-    transform: translate(-50%, -50%) scale(0.3) translateY(100px);
-    transition: opacity 0.5s ease, visibility 0.5s ease;
-    pointer-events: none;
-    padding: 10px;
-}
-
-/* Ensure back button stays above letter */
-.back-button {
-    z-index: 110;
+    transform: translate(-50%, -50%) !important;
+    z-index: 999;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .letter-wrapper.letter-visible {
     opacity: 1;
     visibility: visible;
-    pointer-events: auto;
-    z-index: 100;
 }
 
 /* Letter Content */
@@ -779,49 +787,87 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
 .letter {
     width: 100%;
     height: 100%;
-    background: #fdfaf3;
-    /* Notebook Blue Lines */
+    background-color: #fdfaf3;
+    /* Cream background */
+
+    /* Notebook Paper Pattern */
     background-image:
-        linear-gradient(rgba(180, 210, 230, 0.4) 1px, transparent 1px);
+        /* Red left margin line */
+        linear-gradient(90deg, transparent 59px, #ff9ca6 59px, #ff9ca6 60px, transparent 60px),
+        /* Blue horizontal lines */
+        linear-gradient(transparent 1.7rem, #e4eff8 1.7rem, #e4eff8 1.8rem, transparent 1.8rem);
+
     background-size: 100% 1.8rem;
-    /* Line spacing matches writing */
+    /* Matches line-height */
+    background-attachment: local;
+
     line-height: 1.8rem;
-    padding: 60px 40px 40px 60px !important;
-    /* Left margin for the red line */
-    box-shadow: 5px 5px 20px rgba(0, 0, 0, 0.2), inset 0 0 80px rgba(232, 195, 151, 0.2);
+    /* Strictly sync with background-size */
+
+    padding: 0 40px 0 70px !important;
+    /* Top/Bottom handled by flex/margins to align with lines, Left allows for margin */
+    /* Note: "padding-top" inside text-content might need fine-tuning to land text ON lines */
+
+    box-shadow:
+        0 2px 5px rgba(0, 0, 0, 0.05),
+        inset 0 0 40px rgba(232, 195, 151, 0.1);
+    /* Subtle depth */
     border: 1px solid #d4b896;
+
     position: relative;
     font-family: 'Dancing Script', cursive;
     color: #2c2c2c;
+    font-size: 1.35rem;
+    /* Adjust to fit lines nicely */
+
     display: flex;
     flex-direction: column;
     text-align: left;
-    /* Changed to left for natural writing feel */
-    overflow-y: auto;
-    overflow-x: hidden;
-    /* Prevent horizontal scrollbar */
-    max-height: 80vh;
+    overflow: hidden;
+    /* Prevent scrollbars inside the paper during animation */
 }
 
-/* Red Margin Line (Left side) */
-.letter::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 45px;
-    width: 2px;
-    height: 100%;
-    background: rgba(255, 100, 100, 0.2);
-    z-index: 1;
-    pointer-events: none;
+/* Header Spacer to push Dear... down to a line */
+.letter-header {
+    margin-top: 2rem;
+    /* approx one line height or so */
+    margin-bottom: 0.1rem;
+    flex-shrink: 0;
 }
 
-/* Typed Cursor - Making it look like a Pen tip */
+.letter-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+    padding: 0;
+    line-height: 1.8rem;
+    /* Sync with lines */
+}
+
+.letter-body {
+    flex-grow: 1;
+    position: relative;
+    /* Ensure stability */
+    min-height: 0;
+}
+
+.text-content {
+    /* Stability settings */
+    min-height: 150px;
+    white-space: pre-wrap;
+    /* Ensure text lands on lines */
+    line-height: 1.8rem;
+    display: block;
+}
+
+/* Explicitly hide Typed.js Cursor globally */
 .typed-cursor {
-    color: #34495e;
-    font-size: 1.2rem;
-    vertical-align: middle;
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
 }
+
+
 
 .letter::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(180deg, #f0d1a8 0%, #dcc4a5 100%);
@@ -849,16 +895,7 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     border-radius: 8px;
 }
 
-.letter-header {
-    margin-bottom: 25px;
-    position: relative;
-    z-index: 1;
-}
-
 .letter-header h1 {
-    font-family: 'Dancing Script', cursive;
-    font-size: clamp(1.3rem, 4vw, 2rem);
-    font-weight: 700;
     color: #8b5a3c;
     text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5);
     letter-spacing: 1px;
