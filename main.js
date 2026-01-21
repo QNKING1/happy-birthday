@@ -1,5 +1,26 @@
-
 // --- Cinematic Effects Manager (God Rays, Parallax, Bokehs) ---
+// --- Audio Manager ---
+class AudioManager {
+    constructor() {
+        this.sounds = {
+            envelope: new Audio('paper-rustle.mp3'),
+            magic: new Audio('magic-whoosh.mp3'),
+            blowout: new Audio('blow-out.mp3')
+        };
+        // Pre-setup volumes
+        Object.values(this.sounds).forEach(s => s.volume = 0.5);
+    }
+
+    play(soundName) {
+        const sound = this.sounds[soundName];
+        if (sound) {
+            sound.currentTime = 0;
+            sound.play().catch(e => console.log(`SFX ${soundName} blocked:`, e));
+        }
+    }
+}
+const audioManager = new AudioManager();
+
 class CinematicEffectsManager {
     constructor() {
         this.mouseX = 0;
@@ -27,6 +48,7 @@ class CinematicEffectsManager {
         this.initialPetalBurst = 6;  // spawn a small burst immediately to avoid empty first-frame
         // Runtime flag to prevent double-starting loops
         this.petalsRunning = false;
+        this.particleTimeScale = 1.0;
 
         this.init();
     }
@@ -72,7 +94,7 @@ class CinematicEffectsManager {
 
             // Gentle wandering movement
             const drift = () => {
-                gsap.to(el, {
+                const anim = gsap.to(el, {
                     x: '+= ' + (Math.random() * 300 - 150),
                     y: '+= ' + (Math.random() * 300 - 150),
                     duration: 6 + Math.random() * 8,
@@ -80,6 +102,7 @@ class CinematicEffectsManager {
                     onComplete: drift,
                     overwrite: 'auto'
                 });
+                if (this.particleTimeScale !== 1) anim.timeScale(this.particleTimeScale);
             };
             drift();
         }
@@ -99,25 +122,28 @@ class CinematicEffectsManager {
             const startY = Math.random() * window.innerHeight;
             gsap.set(el, { x: startX, y: startY, opacity: 0.02 });
 
-            // Slow float with random durations. Use onUpdate to check god ray intersection
-            gsap.to(el, {
-                x: '+= ' + (Math.random() * 300 - 150),
-                y: '+= ' + (Math.random() * 200 - 100),
-                duration: 12 + Math.random() * 18,
-                ease: 'none',
-                repeat: -1,
-                yoyo: true,
-                onUpdate: () => {
-                    const rect = el.getBoundingClientRect();
-                    const cx = rect.left + rect.width / 2;
-                    const cy = rect.top + rect.height / 2;
-                    if (this.isInGodRay(cx, cy)) {
-                        gsap.to(el, { opacity: 0.16, duration: 0.25, overwrite: 'auto' });
-                    } else {
-                        gsap.to(el, { opacity: 0.02, duration: 0.6, overwrite: 'auto' });
+            const drift = () => {
+                const anim = gsap.to(el, {
+                    x: '+= ' + (Math.random() * 300 - 150),
+                    y: '+= ' + (Math.random() * 200 - 100),
+                    duration: 12 + Math.random() * 18,
+                    ease: 'none',
+                    repeat: -1,
+                    yoyo: true,
+                    onUpdate: () => {
+                        const rect = el.getBoundingClientRect();
+                        const cx = rect.left + rect.width / 2;
+                        const cy = rect.top + rect.height / 2;
+                        if (this.isInGodRay(cx, cy)) {
+                            gsap.to(el, { opacity: 0.16, duration: 0.25, overwrite: 'auto' });
+                        } else {
+                            gsap.to(el, { opacity: 0.02, duration: 0.6, overwrite: 'auto' });
+                        }
                     }
-                }
-            });
+                });
+                if (this.particleTimeScale !== 1) anim.timeScale(this.particleTimeScale);
+            }
+            drift();
         }
     }
 
@@ -178,7 +204,7 @@ class CinematicEffectsManager {
         // Slight variation for duration so petals don't all land together
         const duration = 4 + Math.random() * 6; // 4 - 10s
         const driftX = (Math.random() * 240 - 120);
-        gsap.to(petal, {
+        const anim = gsap.to(petal, {
             top: window.innerHeight + 80,
             left: `+=${driftX}`,
             rotation: `+=${(Math.random() * 360 - 180)}`,
@@ -186,6 +212,10 @@ class CinematicEffectsManager {
             ease: 'power1.inOut',
             onComplete: () => { if (petal && petal.parentNode) petal.parentNode.removeChild(petal); }
         });
+
+        if (this.petalTimeScale) {
+            anim.timeScale(this.petalTimeScale);
+        }
     }
 
     onMouseMove(event) {
@@ -198,6 +228,40 @@ class CinematicEffectsManager {
 
         // Update blurred leaves parallax (stronger effect)
         this.updateBlurredLeavesParallax();
+    }
+
+    // Slow down all background particles by 50%
+    slowDownParticles() {
+        this.particleTimeScale = 0.5;
+        this.petalTimeScale = 0.5;
+        // Get all GSAP tweens for fireflies and dust
+        this.fireflies.forEach(el => {
+            gsap.getTweensOf(el).forEach(t => t.timeScale(0.5));
+        });
+        this.dustMotes.forEach(el => {
+            gsap.getTweensOf(el).forEach(t => t.timeScale(0.3)); // Even slower for dust
+        });
+
+        // And update existing ones
+        if (this.petalLayer) {
+            const petals = this.petalLayer.querySelectorAll('.petal');
+            petals.forEach(p => gsap.getTweensOf(p).forEach(t => t.timeScale(0.5)));
+        }
+    }
+
+    resetParticleSpeed() {
+        this.particleTimeScale = 1.0;
+        this.petalTimeScale = 1.0;
+        this.fireflies.forEach(el => {
+            gsap.getTweensOf(el).forEach(t => t.timeScale(1.0));
+        });
+        this.dustMotes.forEach(el => {
+            gsap.getTweensOf(el).forEach(t => t.timeScale(1.0));
+        });
+        if (this.petalLayer) {
+            const petals = this.petalLayer.querySelectorAll('.petal');
+            petals.forEach(p => gsap.getTweensOf(p).forEach(t => t.timeScale(1.0)));
+        }
     }
 
     updateGodRaysParallax() {
@@ -285,6 +349,39 @@ class StoryManager {
 
         // Setup cinematic effects for intro scene
         this.cinemaEffectsManager = new CinematicEffectsManager();
+
+        // Reveal Intro Text with GSAP Stagger
+        this.revealIntroText();
+    }
+
+    revealIntroText() {
+        // Target all h1 elements and potential p elements in the intro scene
+        const introElements = document.querySelectorAll('#scene-intro .happy h1, #scene-intro .happy p');
+
+        // Ensure they are visible but starting from offset
+        gsap.fromTo(introElements,
+            {
+                y: 30,
+                opacity: 0
+            },
+            {
+                y: 0,
+                opacity: 1,
+                duration: 1.2,
+                stagger: 0.3,
+                ease: 'power3.out',
+                delay: 0.5
+            }
+        );
+
+        // Also animate the start button slightly after the text
+        const startBtn = document.querySelector('.btn-start');
+        if (startBtn) {
+            gsap.fromTo(startBtn,
+                { y: 20, opacity: 0 },
+                { y: 0, opacity: 1, duration: 1, delay: 1.5, ease: 'power2.out' }
+            );
+        }
     }
 
     setupEventListeners() {
@@ -372,20 +469,29 @@ class StoryManager {
         });
     }
 
-    startExperience() {
+    playMusic() {
+        if (this.isMusicPlaying) return;
+
         // Init Audio Context for auto-play policy
         if (!this.audioContext) {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
 
-        // Play Music
         this.bgMusic.volume = 0.5;
-        this.bgMusic.loop = true; // Setup loop implicitly if not set
+        this.bgMusic.loop = true;
         this.bgMusic.play().then(() => {
             this.isMusicPlaying = true;
-            document.getElementById('music-icon').classList.remove('fa-volume-mute');
-            document.getElementById('music-icon').classList.add('fa-volume-up');
+            const icon = document.getElementById('music-icon');
+            if (icon) {
+                icon.classList.remove('fa-volume-mute');
+                icon.classList.add('fa-volume-up');
+            }
         }).catch(e => console.log("Audio play failed:", e));
+    }
+
+    startExperience() {
+        // Play Music via shared method
+        this.playMusic();
 
         // FAISAFE: Guaranteed button show after 8 seconds
         // Moved here so it runs INDEPENDENTLY of the animation success/failure
@@ -420,35 +526,102 @@ class StoryManager {
 
     transitionTo(sceneName) {
         const targetIndex = this.scenes.indexOf(sceneName);
-        if (targetIndex === -1) return;
+        if (targetIndex === -1 || targetIndex === this.currentSceneIndex) return;
 
-        // If leaving letter scene, reset envelope state
-        if (this.currentSceneIndex === 2 && sceneName !== 'letter') {
-            resetEnvelopeState();
+        // Custom transition for Scene 3 (Letter) -> Scene 4 (Finale)
+        if (this.currentSceneIndex === 2 && sceneName === 'finale') {
+            const currentScene = document.getElementById(`scene-${this.scenes[2]}`);
+            const targetScene = document.getElementById(`scene-finale`);
+
+            gsap.to(currentScene, {
+                opacity: 0,
+                duration: 1,
+                ease: 'power2.inOut',
+                onComplete: () => {
+                    currentScene.classList.remove('active');
+                    resetEnvelopeState();
+
+                    // Swap indices before revealing next scene
+                    this.currentSceneIndex = 3;
+
+                    gsap.set(targetScene, { opacity: 0 });
+                    targetScene.classList.add('active');
+
+                    gsap.to(targetScene, {
+                        opacity: 1,
+                        duration: 1,
+                        ease: 'power2.inOut'
+                    });
+                }
+            });
+            return;
         }
 
-        // Cleanup cinematic effects when leaving intro scene
-        if (this.currentSceneIndex === 0 && this.cinemaEffectsManager) {
-            this.cinemaEffectsManager.destroy();
-        }
+        const shutter = document.querySelector('.scene-shutter');
+        const tl = gsap.timeline();
 
-        // Hide ALL scenes to ensure clean state
-        this.scenes.forEach(s => {
-            const el = document.getElementById(`scene-${s}`);
-            if (el) el.classList.remove('active');
+        // 1. Shutter slides UP to cover
+        tl.to(shutter, {
+            top: 0,
+            duration: 0.6,
+            ease: 'power2.inOut',
+            onComplete: () => {
+                // 2. SWAP SCENES (Exactly when covered)
+
+                // If leaving letter scene, reset envelope state
+                if (this.currentSceneIndex === 2 && sceneName !== 'letter') {
+                    resetEnvelopeState();
+                }
+
+                // Cleanup cinematic effects when leaving intro scene
+                if (this.currentSceneIndex === 0 && this.cinemaEffectsManager) {
+                    this.cinemaEffectsManager.destroy();
+                }
+
+                // Performance: Stop Three.js loop if leaving memory scene
+                if (this.currentSceneIndex === 1 && window.stopMemorySceneLoop) {
+                    window.stopMemorySceneLoop();
+                }
+
+                // Hide ALL scenes
+                this.scenes.forEach(s => {
+                    const el = document.getElementById(`scene-${s}`);
+                    if (el) el.classList.remove('active');
+                });
+
+                // Show target scene
+                const nextId = `scene-${sceneName}`;
+                const nextEl = document.getElementById(nextId);
+                if (nextEl) nextEl.classList.add('active');
+
+                // Reinitialize cinematic effects if transitioning to intro
+                if (sceneName === 'intro' && !this.cinemaEffectsManager) {
+                    this.cinemaEffectsManager = new CinematicEffectsManager();
+                }
+
+                // Init Three.js if transitioning to memory
+                if (sceneName === 'memory' && !this.memorySceneInitialized) {
+                    initMemoryScene();
+                    this.memorySceneInitialized = true;
+                } else if (sceneName === 'memory' && window.startMemorySceneLoop) {
+                    // Resume loop if already initialized
+                    window.startMemorySceneLoop();
+                }
+
+                this.currentSceneIndex = targetIndex;
+            }
         });
 
-        // Show next
-        const nextId = `scene-${sceneName}`;
-        const nextEl = document.getElementById(nextId);
-        if (nextEl) nextEl.classList.add('active');
-
-        // Reinitialize cinematic effects if transitioning to intro
-        if (sceneName === 'intro' && !this.cinemaEffectsManager) {
-            this.cinemaEffectsManager = new CinematicEffectsManager();
-        }
-
-        this.currentSceneIndex = targetIndex;
+        // 3. Shutter slides further UP to reveal
+        tl.to(shutter, {
+            top: '-100%',
+            duration: 0.6,
+            ease: 'power2.inOut',
+            onComplete: () => {
+                // Reset shutter position to bottom for next time
+                gsap.set(shutter, { top: '100%' });
+            }
+        }, '+=0.1');
     }
 
     toggleMusic() {
@@ -861,7 +1034,7 @@ class InteractiveMemoryManager {
 
         gsap.to(memory.rotation, {
             x: 0,
-            y: 0,
+            y: 0.3, // Slight aesthetic tilt
             z: 0,
             duration: this.zoomDuration,
             ease: 'power2.inOut'
@@ -1132,19 +1305,37 @@ function initMemoryScene() {
     const container = document.getElementById('scene-memory');
     if (!container) return;
 
+    let animationId;
+    let isLoopRunning = true;
+
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x000000, 0.001);
 
-    // Calculate responsive dimensions
+    // Calculate responsive dimensions & FOV
     const isSmallScreen = window.innerWidth < 768;
-    const cardWidthBase = isSmallScreen ? 15 : 25;
-    const cardHeightBase = isSmallScreen ? 21 : 35;
-    const cardSpreadRange = isSmallScreen ? 250 : 400;
-    const cardVerticalRange = isSmallScreen ? 120 : 200;
-    const cardDepthRange = isSmallScreen ? 120 : 200;
 
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 250;
+    // Density: Reduce on mobile to prevent "wall of cards"
+    const cardCount = isSmallScreen ? 20 : 38;
+
+    // 3. Increase Card Size: (24, 34)
+    const cardWidthBase = 24;
+    const cardHeightBase = 34;
+
+    // 2. Responsive Cloud Distribution (Expanded for reachability):
+    // Use wider spreads to give cards air.
+    const spreadX = isSmallScreen ? 110 : 320;
+    const spreadY = isSmallScreen ? 170 : 160;
+
+    // Z-Variance Compression: 
+    // On mobile, keep cards closer to a single plane (spreadZ: 50) 
+    // On Desktop, allow more depth (spreadZ: 180).
+    const spreadZ = isSmallScreen ? 50 : 180;
+
+    // 4. Mobile FOV Adjustment: 85 for mobile, 75 for desktop
+    const cameraFOV = isSmallScreen ? 85 : 75;
+    const camera = new THREE.PerspectiveCamera(cameraFOV, window.innerWidth / window.innerHeight, 0.1, 2000);
+    // Start camera far away for the "flying into memories" effect
+    camera.position.z = 1000;
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -1155,13 +1346,24 @@ function initMemoryScene() {
     const onWindowResize = () => {
         const newWidth = window.innerWidth;
         const newHeight = window.innerHeight;
+        const isMobile = newWidth < 768;
 
         camera.aspect = newWidth / newHeight;
+        // Update FOV dynamically on resize
+        camera.fov = isMobile ? 85 : 75;
         camera.updateProjectionMatrix();
         renderer.setSize(newWidth, newHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
     };
     window.addEventListener('resize', onWindowResize);
+
+    // --- Lighting FIX: Add soft lighting for premium look ---
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2); // Increased for clarity
+    scene.add(ambientLight);
+
+    const pointLight = new THREE.PointLight(0xffffff, 1.0, 1000);
+    pointLight.position.set(200, 200, 200);
+    scene.add(pointLight);
 
     const floatGroup = new THREE.Group();
     scene.add(floatGroup);
@@ -1172,21 +1374,25 @@ function initMemoryScene() {
 
     const geometry = new THREE.PlaneGeometry(cardWidthBase, cardHeightBase);
 
-    // Cards create with responsive sizing
-    for (let i = 0; i < 40; i++) {
-        const material = new THREE.MeshBasicMaterial({
+    // Cards create with responsive sizing and standard material
+    for (let i = 0; i < cardCount; i++) {
+        const material = new THREE.MeshStandardMaterial({
             map: textures[i % textures.length],
             side: THREE.DoubleSide,
             transparent: true,
             opacity: 0.8,
-            color: 0xaaaaaa // Start dim/gray to allow "glow" (brightening to white)
+            color: 0xffffff, // Pure white for original brightness
+            emissive: new THREE.Color(0x000000), // No artificial tint
+            roughness: 0.4,
+            metalness: 0.2
         });
 
         const mesh = new THREE.Mesh(geometry, material);
+        // Use the smart distribution logic
         mesh.position.set(
-            Math.random() * cardSpreadRange - (cardSpreadRange / 2),
-            Math.random() * cardVerticalRange - (cardVerticalRange / 2),
-            Math.random() * cardDepthRange - (cardDepthRange / 2)
+            (Math.random() - 0.5) * spreadX,
+            (Math.random() - 0.5) * spreadY,
+            (Math.random() - 0.5) * spreadZ
         );
         mesh.rotation.set(Math.random() * 0.5, Math.random() * 0.5, Math.random() * 0.5);
 
@@ -1194,71 +1400,147 @@ function initMemoryScene() {
         mesh.userData = {
             originalPos: mesh.position.clone(),
             originalRot: mesh.rotation.clone(),
-            phase: Math.random() * Math.PI * 2
+            phaseX: Math.random() * Math.PI * 2,
+            phaseY: Math.random() * Math.PI * 2,
+            floatSpeed: 0.5 + Math.random() * 0.5
         };
 
         floatGroup.add(mesh);
     }
 
-    // Smooth Entry Transition (Explosion Element)
-    // Start small and center, then stagger out
-    floatGroup.children.forEach(mesh => {
-        mesh.scale.set(0, 0, 0); // Start invisible/tiny
+    // Interaction Variables & Drag-to-Rotate
+    let isDragging = false;
+    let startX, startY;
+    let targetRotX = 0, targetRotY = 0;
+    const dragStrength = 0.005;
+
+    // Interaction Listeners
+    const handleStart = (x, y) => {
+        isDragging = true;
+        startX = x;
+        startY = y;
+    };
+
+    const handleMove = (x, y) => {
+        if (!isDragging || isZoomed) return;
+        const dx = x - startX;
+        const dy = y - startY;
+
+        targetRotY += dx * dragStrength;
+        targetRotX += dy * dragStrength;
+
+        startX = x;
+        startY = y;
+    };
+
+    const handleEnd = () => {
+        isDragging = false;
+    };
+
+    // Attach pointer events
+    window.addEventListener('pointerdown', (e) => handleStart(e.clientX, e.clientY));
+    window.addEventListener('pointermove', (e) => handleMove(e.clientX, e.clientY));
+    window.addEventListener('pointerup', handleEnd);
+    window.addEventListener('pointercancel', handleEnd);
+
+    // --- Flying into Memories Entry Animation ---
+    // 1. Bring Camera Closer: Position Z at 140
+    gsap.to(camera.position, {
+        z: 140,
+        duration: 2.5,
+        ease: 'power2.out'
     });
 
-    // Animate in
-    gsap.to(floatGroup.children.map(m => m.scale), {
-        x: 1, y: 1, z: 1,
+    // Scale in cards with a stagger
+    gsap.from(floatGroup.children.map(m => m.scale), {
+        x: 0, y: 0, z: 0,
         duration: 1.5,
         stagger: {
             amount: 1.0,
             from: "random"
         },
-        ease: "back.out(1.7)"
+        ease: "back.out(1.7)",
+        delay: 0.5
     });
-
-    // Lights
-    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
     // Interaction Variables
     const mouse = new THREE.Vector2();
     const raycaster = new THREE.Raycaster();
     let isZoomed = false;
     let focusedObj = null;
+    let isTransitioning = false;
 
-    // Mouse Move for Hover & Parallax
-    // Mouse Move for Hover & Parallax
+    // Interaction Listeners for Hover & Pop-to-Front
     window.addEventListener('mousemove', (event) => {
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+        const mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
 
-        // Hover Effect: Check both cloud and focused card
+        mouse.x = mouseX;
+        mouse.y = mouseY;
+
+        // Hover Effect
         const targets = [...floatGroup.children];
         if (focusedObj) targets.push(focusedObj);
 
         raycaster.setFromCamera(mouse, camera);
+        // Intersect logic: returns results sorted by distance (nearest first)
         const intersects = raycaster.intersectObjects(targets);
 
         if (intersects.length > 0 && !isZoomed) {
             document.body.style.cursor = 'pointer';
+            // Always pick the NEAREST visible card (intersects[0])
             const target = intersects[0].object;
-            gsap.to(target.scale, { x: 1.2, y: 1.2, duration: 0.3 });
-            // Glow Effect: Brighten color
-            if (target.material) gsap.to(target.material.color, { r: 1, g: 1, b: 1, duration: 0.3 });
+
+            // "Pop-to-Front" Hover Effect
+            gsap.to(target.scale, { x: 1.15, y: 1.15, duration: 0.3 });
+            // Move significantly forward in Z to be above others
+            gsap.to(target.position, {
+                z: target.userData.originalPos.z + 25,
+                duration: 0.3,
+                overwrite: true
+            });
+            target.renderOrder = 10;
+
+            if (target.material) {
+                gsap.to(target.material.color, { r: 1.3, g: 1.3, b: 1.3, duration: 0.3 }); // Brighten
+            }
+
+            // Reset others
+            targets.forEach(child => {
+                if (child !== target && child !== focusedObj) {
+                    gsap.to(child.scale, { x: 1, y: 1, duration: 0.3 });
+                    gsap.to(child.position, {
+                        z: child.userData.originalPos.z,
+                        duration: 0.3,
+                        overwrite: true
+                    });
+                    child.renderOrder = 0;
+                    if (child.material) gsap.to(child.material.color, { r: 1, g: 1, b: 1, duration: 0.3 });
+                }
+            });
         } else {
             document.body.style.cursor = 'default';
-            // Scale and Color Reset
             floatGroup.children.forEach(child => {
                 if (child !== focusedObj) {
                     gsap.to(child.scale, { x: 1, y: 1, duration: 0.3 });
-                    if (child.material) gsap.to(child.material.color, { r: 0.66, g: 0.66, b: 0.66, duration: 0.3 }); // Reset to 0xaaaaaa
+                    gsap.to(child.position, {
+                        z: child.userData.originalPos.z,
+                        duration: 0.3,
+                        overwrite: true
+                    });
+                    child.renderOrder = 0;
+                    if (child.material) {
+                        gsap.to(child.material.color, { r: 1, g: 1, b: 1, duration: 0.3 });
+                    }
                 }
             });
         }
     });
 
-    // Click to Focus (Card-to-Center)
+    // Click logic (Reuse existing zoomIn/returnToCloud functions with refinements)
     window.addEventListener('click', () => {
+        if (isTransitioning) return; // Prevent double-clicks or rapid clicks during movement
+
         const targets = [...floatGroup.children];
         if (focusedObj) targets.push(focusedObj);
 
@@ -1267,187 +1549,137 @@ function initMemoryScene() {
 
         if (intersects.length > 0) {
             const clicked = intersects[0].object;
-
-            // If same card clicked while focused -> return it
             if (isZoomed && focusedObj === clicked) {
                 returnToCloud();
-                return;
-            }
-
-            // If another card is focused, return it first then focus new one
-            if (isZoomed && focusedObj && focusedObj !== clicked) {
+            } else if (isZoomed && focusedObj && focusedObj !== clicked) {
                 returnToCloud();
-                setTimeout(() => zoomIn(clicked), 1300);
-                return;
-            }
-
-            // Otherwise focus clicked card
-            if (!isZoomed) {
+                setTimeout(() => zoomIn(clicked), 800);
+            } else if (!isZoomed) {
                 zoomIn(clicked);
             }
-        } else {
-            // Clicked empty space: if focused, return to cloud
-            if (isZoomed) returnToCloud();
+        } else if (isZoomed) {
+            returnToCloud();
         }
     });
 
+    // --- Updated ZoomIn Function for initMemoryScene ---
     function zoomIn(obj) {
-        if (!obj) return;
+        if (!obj || isTransitioning) return;
+        isTransitioning = true;
         isZoomed = true;
         focusedObj = obj;
-
-        // Lock object so floating doesn't override the animation
         obj.userData.locked = true;
 
-        // Create highlight plane behind the object
-        createHighlightFor(obj);
-
-        // Detach from rotating floatGroup and attach to stable Scene
-        // This ensures world rotation (0,0,0) is truly straight relative to camera
+        // 1. Scene mein attach karein taake center mein aa sake
         scene.attach(obj);
 
-        // Target world position just in front of camera (Camera is at Z=250)
-        // Since obj is now child of scene, we use global coords
+        // 2. Position Animation (Center mein lana)
         gsap.to(obj.position, {
             x: 0,
             y: 0,
-            z: camera.position.z - 50,
+            z: camera.position.z - 50, // Camera ke qareeb
             duration: 1.2,
             ease: 'power2.inOut'
         });
 
-        // Strict Rotation Overwrite: Force 0,0,0 (World Space)
+        // 3. FLIP ANIMATION (Ye wo magic part hai!)
+        // Card ko seedha karte hue 360 degree ghumana aur slight tilt dena
         gsap.to(obj.rotation, {
             x: 0,
-            y: 0,
+            y: Math.PI * 2 + 0.3, // Fixed readable angle with slight tilt to right
             z: 0,
             duration: 1.2,
-            ease: 'power2.out',
-            overwrite: true
+            ease: 'back.out(1.2)' // Thora sa bounce effect
         });
 
-        gsap.to(obj.scale, { x: 1.08, y: 1.08, z: 1.08, duration: 1.2, ease: 'power2.inOut' });
+        // 4. FLASH EFFECT (Gold Color)
+        // Pehle original color save karein
+        if (!obj.userData.originalColor) obj.userData.originalColor = obj.material.color.getHex();
 
-        // Dim other cards
+        gsap.to(obj.material.color, {
+            r: 1, g: 0.8, b: 0.2, // Gold
+            duration: 0.3,
+            yoyo: true,
+            repeat: 1,
+            onComplete: () => {
+                // Wapas White color par lana
+                gsap.to(obj.material.color, { r: 1, g: 1, b: 1, duration: 0.5 });
+            }
+        });
+
+        // 5. Scale & Opacity
+        gsap.to(obj.scale, {
+            x: 1.2, y: 1.2, z: 1.2,
+            duration: 1.2,
+            ease: 'power2.inOut',
+            onComplete: () => { isTransitioning = false; } // Unlock after movement finishes
+        });
+
+        // Baqi cards ko dim karna
         floatGroup.children.forEach(child => {
-            if (child.material) gsap.to(child.material, { opacity: 0.25, duration: 1.2, ease: 'power2.inOut' });
-        });
-    }
-
-    function createHighlightFor(obj) {
-        if (!obj) return;
-        if (obj.userData.highlight) return;
-
-        const geoW = (obj.geometry && obj.geometry.parameters && obj.geometry.parameters.width) ? obj.geometry.parameters.width : 25;
-        const geoH = (obj.geometry && obj.geometry.parameters && obj.geometry.parameters.height) ? obj.geometry.parameters.height : 35;
-
-        // Premium Border: Slightly larger Plane
-        const planeGeo = new THREE.PlaneGeometry(geoW * 1.2, geoH * 1.2);
-
-        // Dynamic Texture for Glow
-        const canvas = document.createElement('canvas');
-        canvas.width = 256; canvas.height = 256;
-        const ctx = canvas.getContext('2d');
-        const grad = ctx.createRadialGradient(128, 128, 10, 128, 128, 128);
-        grad.addColorStop(0, 'rgba(255,220,180,0.9)'); // Warm golden core
-        grad.addColorStop(0.6, 'rgba(255,100,150,0.5)'); // Soft pink mid
-        grad.addColorStop(1, 'rgba(255,100,150,0)'); // Fade out
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, 256, 256);
-        const tex = new THREE.CanvasTexture(canvas);
-
-        const mat = new THREE.MeshBasicMaterial({
-            map: tex,
-            transparent: true,
-            opacity: 0,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            side: THREE.DoubleSide
+            if (child.material) gsap.to(child.material, { opacity: 0.1, duration: 1 });
         });
 
-        const mesh = new THREE.Mesh(planeGeo, mat);
-
-        // Parent to the card so it follows automatically
-        obj.add(mesh);
-        mesh.position.set(0, 0, -1); // Local offset behind
-        mesh.rotation.set(0, 0, 0);
-        mesh.scale.set(1.1, 1.1, 1);
-
-        obj.userData.highlight = mesh;
-
-        // Animation: Fade in and Scale up
-        gsap.to(mat, { opacity: 1.0, duration: 1.2, ease: 'power2.inOut' });
-        gsap.to(mesh.scale, { x: 1.2, y: 1.2, duration: 1.2, ease: 'power2.inOut' });
-    }
-
-    function removeHighlightFor(obj) {
-        if (!obj || !obj.userData.highlight) return;
-        const mesh = obj.userData.highlight;
-        if (mesh.material) {
-            gsap.to(mesh.material, {
-                opacity: 0, duration: 0.4, ease: 'power2.out', onComplete: () => {
-                    if (mesh.parent) mesh.parent.remove(mesh);
-                    mesh.geometry.dispose();
-                    if (mesh.material.map) mesh.material.map.dispose();
-                    mesh.material.dispose();
-                }
+        // Close Button Show karna
+        const closeBtn = document.getElementById('memory-close-btn');
+        if (closeBtn) {
+            gsap.to(closeBtn, {
+                opacity: 1,
+                pointerEvents: 'auto',
+                duration: 0.5,
+                delay: 0.3
             });
-        } else {
-            if (mesh.parent) mesh.parent.remove(mesh);
         }
-        obj.userData.highlight = null;
     }
 
     function returnToCloud() {
-        if (!focusedObj) return;
+        if (!focusedObj || isTransitioning) return;
+        isTransitioning = true;
+
         const obj = focusedObj;
-
-        // Ensure locked during return
-        obj.userData.locked = true;
-
-        // Re-attach to floatGroup to restore coordinate system
-        // 'attach' maintains the world transform, so visually it doesn't jump
         floatGroup.attach(obj);
 
         const orig = obj.userData.originalPos;
         const oriRot = obj.userData.originalRot;
 
-        // Animate return to original LOCAL position within the group
+        // Wapas apni jagah
         gsap.to(obj.position, {
-            x: orig.x,
-            y: orig.y,
-            z: orig.z,
-            duration: 1.2,
+            x: orig.x, y: orig.y, z: orig.z,
+            duration: 1,
             ease: 'power2.inOut',
             onComplete: () => {
-                // UNLOCK only after animation completes
                 obj.userData.locked = false;
-
-                // Reset state
                 if (focusedObj === obj) {
                     focusedObj = null;
                     isZoomed = false;
                 }
+                isTransitioning = false; // Unlock after card returns
             }
         });
 
+        // Wapas apni rotation
         gsap.to(obj.rotation, {
-            x: oriRot.x,
-            y: oriRot.y,
-            z: oriRot.z,
-            duration: 1.2,
+            x: oriRot.x, y: oriRot.y, z: oriRot.z,
+            duration: 1,
             ease: 'power2.inOut'
         });
 
-        gsap.to(obj.scale, { x: 1, y: 1, z: 1, duration: 1.2, ease: 'power2.inOut' });
+        gsap.to(obj.scale, { x: 1, y: 1, z: 1, duration: 1 });
 
-        // Remove highlight
-        removeHighlightFor(obj);
-
-        // Restore opacities
+        // Sab cards wapas visible
         floatGroup.children.forEach(child => {
-            if (child.material) gsap.to(child.material, { opacity: 0.8, duration: 1.2, ease: 'power2.inOut' });
+            if (child.material) gsap.to(child.material, { opacity: 0.8, duration: 1 });
         });
+
+        // Close Button Hide
+        const closeBtn = document.getElementById('memory-close-btn');
+        if (closeBtn) {
+            gsap.to(closeBtn, {
+                opacity: 0,
+                pointerEvents: 'none',
+                duration: 0.3
+            });
+        }
     }
 
     // --- 1. Starfield Logic ---
@@ -1455,109 +1687,120 @@ function initMemoryScene() {
         const starGeo = new THREE.BufferGeometry();
         const starCount = 2000;
         const posArray = new Float32Array(starCount * 3);
+        const texture = new THREE.TextureLoader().load('https://assets.codepen.io/16327/star.png');
 
         for (let i = 0; i < starCount * 3; i++) {
-            posArray[i] = (Math.random() - 0.5) * 1500; // Spread wide
+            posArray[i] = (Math.random() - 0.5) * 2000;
         }
 
         starGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-
         const starMat = new THREE.PointsMaterial({
             size: 2,
             color: 0xffffff,
             transparent: true,
-            opacity: 0.8,
-            map: new THREE.TextureLoader().load('https://assets.codepen.io/16327/star.png'), // Optional simple star or circle
+            opacity: 0.6,
+            map: texture,
             depthWrite: false,
             blending: THREE.AdditiveBlending
         });
-
         const starMesh = new THREE.Points(starGeo, starMat);
         scene.add(starMesh);
         return starMesh;
     }
     const stars = createStarfield();
 
-    // --- 2. Floating Dust Logic ---
-    function createDust() {
-        const dustGeo = new THREE.BufferGeometry();
-        const dustCount = 100;
-        const dustPos = new Float32Array(dustCount * 3);
-        const dustSizes = new Float32Array(dustCount);
-
-        for (let i = 0; i < dustCount; i++) {
-            dustPos[i * 3] = (Math.random() - 0.5) * 800;
-            dustPos[i * 3 + 1] = (Math.random() - 0.5) * 800;
-            dustPos[i * 3 + 2] = (Math.random() - 0.5) * 800;
-            dustSizes[i] = Math.random() * 3;
-        }
-
-        dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
-
-        const dustMat = new THREE.PointsMaterial({
-            color: 0xffd700, // Gold dust
-            size: 4,
-            transparent: true,
-            opacity: 0.4,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false
-        });
-
-        const dustMesh = new THREE.Points(dustGeo, dustMat);
-        scene.add(dustMesh);
-        return { mesh: dustMesh, speeds: Array(dustCount).fill(0).map(() => Math.random() * 0.05 + 0.02) };
-    }
-    const dustSystem = createDust();
-
     const animate = () => {
-        requestAnimationFrame(animate);
+        if (!isLoopRunning) return;
+        animationId = requestAnimationFrame(animate);
 
-        // Starfield Parallax
-        stars.rotation.y = mouse.x * 0.05;
-        stars.rotation.x = -mouse.y * 0.05;
+        const time = Date.now() * 0.001;
 
-        // Dust Movement (Drift towards camera)
-        const positions = dustSystem.mesh.geometry.attributes.position.array;
-        for (let i = 0; i < 100; i++) {
-            positions[i * 3 + 2] += dustSystem.speeds[i]; // Move Z towards camera
-            if (positions[i * 3 + 2] > 300) positions[i * 3 + 2] = -500; // Reset loop
-        }
-        dustSystem.mesh.geometry.attributes.position.needsUpdate = true;
-        dustSystem.mesh.rotation.y += 0.0005;
+        // Slow star rotation
+        stars.rotation.y += 0.0002;
 
         if (!isZoomed) {
-            // Natural Floating Movement
+            // Apply Drag-to-Rotate interpolation
+            floatGroup.rotation.y += (targetRotY - floatGroup.rotation.y) * 0.1;
+            floatGroup.rotation.x += (targetRotX - floatGroup.rotation.x) * 0.1;
+
+            // Natural Floating Movement (Sine Waves) - Increased range for better "mixing"
             floatGroup.children.forEach(obj => {
-                // strict check: if obj is focused or locked, DO NOT TOUCH IT
-                if (obj === focusedObj) return;
                 if (obj.userData && obj.userData.locked) return;
 
-                const time = Date.now() * 0.001;
-                obj.position.y = obj.userData.originalPos.y + Math.sin(time + obj.userData.phase) * 5;
+                const physics = obj.userData;
+                // Move cards more significantly to reveal ones behind
+                obj.position.y = physics.originalPos.y + Math.sin(time * physics.floatSpeed + physics.phaseY) * 12;
+                obj.position.x = physics.originalPos.x + Math.cos(time * 0.5 * physics.floatSpeed + physics.phaseX) * 8;
+
+                // Subtle organic rotation
+                obj.rotation.z = physics.originalRot.z + Math.sin(time * 0.3 * physics.floatSpeed) * 0.1;
             });
-            floatGroup.rotation.y += 0.001;
+
+            // Slow idle drift
+            targetRotY += 0.0005;
         }
 
         renderer.render(scene, camera);
+    };
+
+    // --- Performance: Loop Handlers ---
+    window.stopMemorySceneLoop = () => {
+        console.log("Stopping Three.js Memory Loop");
+        isLoopRunning = false;
+        if (animationId) cancelAnimationFrame(animationId);
+    };
+
+    window.startMemorySceneLoop = () => {
+        if (!isLoopRunning) {
+            console.log("Starting Three.js Memory Loop");
+            isLoopRunning = true;
+            animate();
+        }
     };
 
     animate();
 }
 
 
-// --- Scene 3: Letter Logic (Enhanced 3D with GSAP) ---
+// --- Scene 3: Letter Logic (Realistic Redesign) ---
 function initLetterInteraction() {
-    const envelopeContainer = document.querySelector('.envelope-container');
-    const envelope3D = document.querySelector('.envelope-3d');
-    const letterWrapper = document.querySelector('.letter-wrapper');
-    const textContentEl = document.querySelector('.text-content');
-    const envelopeFlap = document.querySelector('.envelope-flap');
+    const envelopeContainer = document.getElementById('envelopeContainer');
+    const envelopeWrapper = document.getElementById('envelopeWrapper');
+    const envelope3D = document.getElementById('envelope3D');
+    const letterWrapper = document.getElementById('letterWrapper');
+    const textContentEl = document.getElementById('textContent');
+    const envelopeFlap = document.getElementById('envelopeFlap');
+    const waxSeal = document.getElementById('waxSeal');
+    const sealLeft = waxSeal?.querySelector('.seal-half.left');
+    const sealRight = waxSeal?.querySelector('.seal-half.right');
 
     let isAnimating = false;
     let isOpen = false;
 
+    // --- 1. Wax Seal Vibration (Hover) ---
+    if (waxSeal) {
+        waxSeal.addEventListener('mouseenter', () => {
+            if (!isOpen && !isAnimating) {
+                gsap.to(waxSeal, {
+                    x: "+=2",
+                    duration: 0.05,
+                    repeat: -1,
+                    yoyo: true,
+                    ease: "power1.inOut"
+                });
+            }
+        });
+
+        waxSeal.addEventListener('mouseleave', () => {
+            if (!isOpen) {
+                gsap.killTweensOf(waxSeal);
+                gsap.to(waxSeal, { x: 0, duration: 0.2 });
+            }
+        });
+    }
+
     // Clear text content for Typed.js
-    textContentEl.innerHTML = '';
+    if (textContentEl) textContentEl.innerHTML = '';
 
     // Add click listener to envelope
     envelopeContainer.addEventListener('click', function () {
@@ -1565,95 +1808,120 @@ function initLetterInteraction() {
 
         isAnimating = true;
         isOpen = true;
+        gsap.killTweensOf(waxSeal);
 
-        // Create GSAP timeline for smooth sequential animations
+        // 1. Play SFX
+        audioManager.play('envelope');
+
+        // 2. Start Background Music if not playing (User specifically requested trigger here)
+        if (window.storyApp) {
+            window.storyApp.playMusic();
+        }
+
+        // Slow down background particles (access via StoryManager instance)
+        if (window.storyManager && window.storyManager.cinemaEffectsManager) {
+            window.storyManager.cinemaEffectsManager.slowDownParticles();
+        }
+
         const tl = gsap.timeline({
             onComplete: () => {
                 // Architectural switch to Reading Mode
-                // Clear GSAP transforms to allow CSS .reading-mode class to take over 100%
-                gsap.set(letterWrapper, { clearProps: "all" });
+                gsap.set(letterWrapper, { clearProps: "transform" });
                 letterWrapper.classList.add('reading-mode');
+
+                // Add 3D Parallax Tilt once letter is out
+                addEnvelopeParallax(envelopeWrapper);
 
                 isAnimating = false;
                 startTypewriterEffect();
             }
         });
 
-        // --- SEQUENCE START (State: Envelope Context) ---
+        // --- SEQUENCE START ---
 
-        // 1. Initial State
-        tl.set(envelopeFlap, { zIndex: 10 });
-        tl.set(letterWrapper, {
+        // 1. Step 1: The Clean Break - Seal halves slide apart and rotate
+        tl.to(sealLeft, {
+            x: -50,
+            rotate: -20,
             opacity: 0,
-            visibility: 'visible',
-            y: 0, // start inside
-            scale: 0.8,
-            zIndex: 5
+            duration: 0.7,
+            ease: "power2.inOut"
         });
-
-        // 2. Rotate Flap Open
-        tl.to(envelopeFlap, {
-            rotationX: 180,
-            duration: 0.8,
-            ease: 'power2.inOut'
-        }, 0);
-
-        // 3. Hide Decors
-        tl.to(['.envelope-decoration', '.envelope-instruction'], {
+        tl.to(sealRight, {
+            x: 50,
+            rotate: 20,
             opacity: 0,
-            duration: 0.3,
-            onComplete: () => {
-                gsap.set(['.envelope-decoration', '.envelope-instruction'], { visibility: 'hidden' });
-            }
+            duration: 0.7,
+            ease: "power2.inOut"
         }, 0);
 
-        // 4. Tuck Flap Behind
-        tl.set(envelopeFlap, { zIndex: 1 }, 0.6);
+        // 2. Step 2: The Flap - Wait for seal to clear, then rotate flap upwards
+        tl.to(envelopeFlap, {
+            rotationX: -180,
+            duration: 1.2,
+            ease: 'power2.inOut'
+        }, 0.8); // 0.1s after seal finishes clearing (0.7 + 0.1)
 
-        // 5. Letter Slide Up (Relative to Envelope)
-        // We use a combination of opacity and translateY for standard "exiting" feel
+        // 3. Step 3: Layering Fix - Swap Z-Indices (Letter ABOVE top flap)
+        tl.set(letterWrapper, { zIndex: 100 }, 2.0);
+        tl.set(envelopeFlap, { zIndex: 1 }, 2.0);
+
+        // 4. Step 4: Reveal - Letter Slide Up out of the pocket
         tl.to(letterWrapper, {
             opacity: 1,
-            y: -150, // slide up out of pocket
-            scale: 0.9,
-            duration: 0.7,
-            ease: 'power2.out',
-            onStart: () => {
-                envelope3D.classList.add('envelope-open');
-            }
-        }, 0.5);
+            visibility: 'visible',
+            y: -280,
+            scale: 1.0,
+            duration: 0.9,
+            ease: 'power2.out'
+        }, 2.1);
 
-        // 6. Final Reach to Viewport Center (While still absolute)
-        // This is a "visual bridge" before the class switch.
-        // We simulate the fixed center position.
+        // 5. Final Visual Bridge to Viewport Center
         const vh = window.innerHeight;
         const rect = envelopeContainer.getBoundingClientRect();
         const distToCenter = (vh / 2) - (rect.top + rect.height / 2);
 
         tl.to(letterWrapper, {
-            y: distToCenter, // move to screen center
-            scale: 1,
+            y: distToCenter,
             duration: 0.8,
             ease: 'power3.inOut'
         }, "+=0.1");
+
+        // Hide instruction
+        gsap.to('.envelope-instruction', { opacity: 0, duration: 0.3 });
     });
+
+    function addEnvelopeParallax(el) {
+        document.addEventListener('mousemove', (e) => {
+            if (!isOpen) return;
+            const x = (e.clientX / window.innerWidth - 0.5) * 25;
+            const y = -(e.clientY / window.innerHeight - 0.5) * 15;
+
+            gsap.to(el, {
+                rotationY: x,
+                rotationX: y,
+                duration: 1.2,
+                ease: 'power1.out',
+                overwrite: 'auto'
+            });
+        });
+    }
 
     function startTypewriterEffect() {
         try {
             if (typeof Typed !== 'undefined') {
-                new Typed('.text-content', {
+                new Typed('#textContent', {
                     strings: [
                         "Dearest,<br><br>Wishing you a day filled with laughter,<br>love, and starlight...<br><br>^500You are truly special not just today,<br>but every single day.<br><br>^500May this year bring you closer<br>to all your dreams.<br><br>^1000Happy Birthday!"
                     ],
                     typeSpeed: 40,
                     startDelay: 300,
-                    showCursor: false, // EXPLICITLY DISABLED
+                    showCursor: false,
                     onComplete: () => {
                         fadeInWishButton();
                     }
                 });
             } else {
-                // Fallback
                 textContentEl.innerHTML = 'Wishing you a day filled with laughter, love, and starlight!<br>You are truly special not just today, but every single day.';
                 fadeInWishButton();
             }
@@ -1673,67 +1941,65 @@ function fadeInWishButton() {
         delay: 0.5,
         onStart: () => {
             const btn = document.getElementById('make-wish-btn');
-            btn.style.display = 'inline-block';
-            btn.style.pointerEvents = 'auto'; // Ensure clickable
+            if (btn) {
+                btn.style.display = 'inline-block';
+                btn.style.pointerEvents = 'auto';
+            }
         }
     });
 }
 
 // Reset envelope state when transitioning away
 function resetEnvelopeState() {
-    const envelope3D = document.querySelector('.envelope-3d');
-    const letterWrapper = document.querySelector('.letter-wrapper');
-    const envelopeFlap = document.querySelector('.envelope-flap');
-    const textContent = document.querySelector('.text-content');
-    const envelopeDecoration = document.querySelector('.envelope-decoration');
-    const envelopeInstruction = document.querySelector('.envelope-instruction');
+    const envelopeWrapper = document.getElementById('envelopeWrapper');
+    const letterWrapper = document.getElementById('letterWrapper');
+    const envelopeFlap = document.getElementById('envelopeFlap');
+    const waxSeal = document.getElementById('waxSeal');
+    const sealLeft = waxSeal?.querySelector('.seal-half.left');
+    const sealRight = waxSeal?.querySelector('.seal-half.right');
 
-    // Kill any running GSAP animations on these elements
-    gsap.killTweensOf('.envelope-3d');
-    gsap.killTweensOf('.envelope-flap');
-    gsap.killTweensOf('.letter-wrapper');
-    gsap.killTweensOf('.envelope-decoration');
-    gsap.killTweensOf('.envelope-instruction');
+    // Reset particles
+    if (window.storyManager && window.storyManager.cinemaEffectsManager) {
+        window.storyManager.cinemaEffectsManager.resetParticleSpeed();
+    }
 
-    // Reset classes
-    if (envelope3D) envelope3D.classList.remove('envelope-open');
-    if (letterWrapper) letterWrapper.classList.remove('letter-visible');
+    gsap.killTweensOf(envelopeWrapper);
+    gsap.killTweensOf(envelopeFlap);
+    gsap.killTweensOf(letterWrapper);
+    gsap.killTweensOf(waxSeal);
+    if (sealLeft) gsap.killTweensOf(sealLeft);
+    if (sealRight) gsap.killTweensOf(sealRight);
 
-    // Reset inline styles
+    if (letterWrapper) {
+        letterWrapper.classList.remove('reading-mode');
+        letterWrapper.style.opacity = '0';
+        letterWrapper.style.visibility = 'hidden';
+        letterWrapper.style.transform = '';
+        letterWrapper.style.zIndex = '1';
+    }
     if (envelopeFlap) {
         envelopeFlap.style.transform = '';
-        envelopeFlap.style.zIndex = '';
+        envelopeFlap.style.zIndex = '4';
     }
-    if (letterWrapper) {
-        letterWrapper.style.opacity = '';
-        letterWrapper.style.visibility = '';
-        letterWrapper.style.transform = '';
-        letterWrapper.style.pointerEvents = '';
+    if (waxSeal) {
+        gsap.set(waxSeal, { x: 0, opacity: 1, clearProps: "all" });
     }
-    if (envelopeDecoration) {
-        envelopeDecoration.style.opacity = '';
-    }
-    if (envelopeInstruction) {
-        envelopeInstruction.style.opacity = '';
-        envelopeInstruction.style.visibility = '';
-    }
+    if (sealLeft) gsap.set(sealLeft, { x: 0, rotate: 0, opacity: 1 });
+    if (sealRight) gsap.set(sealRight, { x: 0, rotate: 0, opacity: 1 });
+    if (envelopeWrapper) gsap.set(envelopeWrapper, { rotationX: 0, rotationY: 0 });
 
-    // Clear text content
-    if (textContent) {
-        textContent.innerHTML = '';
-    }
+    // Clear Typed.js
+    const textContent = document.getElementById('textContent');
+    if (textContent) textContent.innerHTML = '';
 
-    // Kill Typed.js instance if it exists
     if (window.Typed && window.Typed.instances) {
         window.Typed.instances.forEach(instance => instance.destroy());
     }
 
-    // Reset button
     const makeWishBtn = document.getElementById('make-wish-btn');
     if (makeWishBtn) {
         makeWishBtn.style.opacity = '0';
         makeWishBtn.style.display = 'none';
-        makeWishBtn.style.pointerEvents = 'none';
     }
 }
 
@@ -1751,6 +2017,8 @@ function initFinale() {
         const firstAnim = document.getElementById('bizcocho_1');
         if (firstAnim && typeof firstAnim.beginElement === 'function') {
             firstAnim.beginElement(); // This starts the chain reaction
+            // Play magic whoosh when cake starts appearing
+            audioManager.play('magic');
         }
     }, 2000); // 2-second delay as requested
 
@@ -1801,6 +2069,10 @@ function initFinale() {
         if (blownOut) return;
         blownOut = true;
         candle.classList.add('out');
+
+        // Play Blow Out SFX
+        audioManager.play('blowout');
+
         gsap.to('#scene-finale', { backgroundColor: '#000', duration: 1 });
 
         // Hide instruction
