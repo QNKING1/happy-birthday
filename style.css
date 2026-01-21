@@ -58,6 +58,20 @@ body {
     pointer-events: auto;
 }
 
+/* --- Scene Shutter Transition --- */
+.scene-shutter {
+    position: fixed;
+    top: 100%;
+    /* Initially off-screen below */
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #131b21;
+    /* Match theme background */
+    z-index: 10000;
+    pointer-events: none;
+}
+
 /* --- Global Elements --- */
 #bg-canvas {
     position: fixed;
@@ -97,6 +111,26 @@ body {
     /* Let global bg show */
     position: relative;
     overflow: hidden;
+}
+
+.intro-bg-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    animation: kenBurns 40s ease-in-out infinite alternate;
+}
+
+@keyframes kenBurns {
+    0% {
+        transform: scale(1);
+    }
+
+    100% {
+        transform: scale(1.1);
+    }
 }
 
 /* ===== CINEMATIC EFFECTS ===== */
@@ -192,7 +226,7 @@ body {
     background: radial-gradient(circle, rgba(255, 215, 0, 0.6), rgba(255, 215, 0, 0));
     top: 10%;
     left: 15%;
-    animation: bokehDrift1 15s ease-in-out infinite;
+    animation: bokehDrift1 30s ease-in-out infinite;
 }
 
 #bokeh-2 {
@@ -201,7 +235,7 @@ body {
     background: radial-gradient(circle, rgba(135, 206, 250, 0.5), rgba(135, 206, 250, 0));
     top: 20%;
     right: 10%;
-    animation: bokehDrift2 18s ease-in-out infinite;
+    animation: bokehDrift2 36s ease-in-out infinite;
 }
 
 #bokeh-3 {
@@ -210,7 +244,7 @@ body {
     background: radial-gradient(circle, rgba(255, 160, 122, 0.5), rgba(255, 160, 122, 0));
     bottom: 15%;
     left: 20%;
-    animation: bokehDrift3 20s ease-in-out infinite;
+    animation: bokehDrift3 40s ease-in-out infinite;
 }
 
 #bokeh-4 {
@@ -219,7 +253,7 @@ body {
     background: radial-gradient(circle, rgba(221, 160, 221, 0.4), rgba(221, 160, 221, 0));
     bottom: 10%;
     right: 15%;
-    animation: bokehDrift4 17s ease-in-out infinite;
+    animation: bokehDrift4 34s ease-in-out infinite;
 }
 
 @keyframes bokehDrift1 {
@@ -434,6 +468,28 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     opacity: 1;
     /* Was 0, fixed to make start button visible */
     transition: opacity 0.5s;
+    width: 90%;
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+@media (max-width: 768px) {
+    .happy h1 {
+        font-size: clamp(1.2rem, 5vw, 2rem);
+        letter-spacing: 0.2em;
+        margin-bottom: 10px;
+    }
+
+    .happy span {
+        font-size: clamp(1.8rem, 8vw, 2.5rem);
+    }
+
+    .btn-start {
+        padding: 12px 25px;
+        font-size: 1rem;
+    }
 }
 
 .happy h1 {
@@ -457,9 +513,11 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     padding: clamp(12px, 3vw, 15px) clamp(30px, 5vw, 40px);
     font-size: clamp(1rem, 2.5vw, 1.5rem);
     font-family: "Amethysta", serif;
-    background: #ff4757;
+    background: rgba(255, 71, 87, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     color: #fff;
-    border: none;
+    border: 0.5px solid rgba(255, 255, 255, 0.5);
     border-radius: 30px;
     cursor: pointer;
     transition: all 0.3s;
@@ -467,17 +525,43 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     letter-spacing: 2px;
     z-index: 9999;
     position: relative;
-    /* Ensure z-index applies */
-    box-shadow: 0 0 20px rgba(255, 71, 87, 0.5);
+    overflow: hidden;
+    box-shadow: 0 8px 32px 0 rgba(255, 71, 87, 0.3);
     min-height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
+.btn-start::after {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -60%;
+    width: 20%;
+    height: 200%;
+    background: linear-gradient(to right,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0.3) 50%,
+            rgba(255, 255, 255, 0) 100%);
+    transform: rotate(30deg);
+    animation: shimmer 4s infinite ease-in-out;
+}
+
+@keyframes shimmer {
+    0% {
+        left: -60%;
+    }
+
+    15%,
+    100% {
+        left: 120%;
+    }
+}
+
 .btn-start:hover {
-    background: #ff6b81;
-    box-shadow: 0 0 30px rgba(255, 71, 87, 0.8);
+    background: rgba(255, 71, 87, 0.6);
+    box-shadow: 0 8px 32px 0 rgba(255, 71, 87, 0.5);
     transform: scale(1.05);
 }
 
@@ -602,24 +686,25 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     cursor: pointer;
     perspective: 1200px;
     z-index: 35;
-    width: 320px;
-    /* Match envelope-3d width */
-    height: 220px;
-    /* Match envelope-3d height */
+    width: min(500px, 90vw);
+    /* Responsive container width */
+    aspect-ratio: 320 / 220;
+    /* Maintain envelope proportions */
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 20px;
 }
 
-/* 3D Envelope Main Container */
-.envelope-3d {
+/* 3D Envelope Redesign - THE X-FOLD */
+.envelope-wrapper {
     position: relative;
-    width: min(320px, 80vw);
-    height: min(220px, 60vw);
+    width: 100%;
+    height: 100%;
     transform-style: preserve-3d;
     transition: transform 0.3s ease;
     animation: envelopeIdlePulse 3s ease-in-out infinite;
-    max-width: 320px;
+    z-index: 35;
 }
 
 @keyframes envelopeIdlePulse {
@@ -634,130 +719,194 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     }
 }
 
-.envelope-container:hover .envelope-3d {
-    transform: scale(1.03) translateZ(20px);
-    animation: none;
-}
-
-/* Envelope Front Face */
-.envelope-front {
-    position: absolute;
+.envelope-3d {
+    position: relative;
     width: 100%;
     height: 100%;
     transform-style: preserve-3d;
 }
 
-.envelope-front-face {
+/* Base Back part of envelope */
+.envelope-back {
     position: absolute;
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, #f1d2a9 0%, #e8c397 100%);
-    border-radius: 3px;
-    box-shadow:
-        0 15px 40px rgba(0, 0, 0, 0.4),
-        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    background: #e8c397;
+    border-radius: 4px;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* Side Flaps (Left & Right) - Using Clip-Path for perfect responsiveness */
+.flap-left {
+    position: absolute;
+    width: 50%;
+    height: 100%;
+    background: #d4b896;
+    left: 0;
+    top: 0;
+    z-index: 2;
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
+    filter: drop-shadow(2px 0 3px rgba(0, 0, 0, 0.1));
+}
+
+.flap-right {
+    position: absolute;
+    width: 50%;
+    height: 100%;
+    background: #d4b896;
+    right: 0;
+    top: 0;
+    z-index: 2;
+    clip-path: polygon(100% 0, 0 50%, 100% 100%);
+    filter: drop-shadow(-2px 0 3px rgba(0, 0, 0, 0.1));
+}
+
+/* Bottom Flap */
+.flap-bottom {
+    position: absolute;
+    width: 100%;
+    height: 60%;
+    background: #c9a878;
+    bottom: 0;
+    left: 0;
+    z-index: 3;
+    clip-path: polygon(0 100%, 50% 0, 100% 100%);
+    filter: drop-shadow(0 -3px 4px rgba(0, 0, 0, 0.15));
+}
+
+/* Top Flap (The one that opens) */
+.flap-top {
+    position: absolute;
+    width: 100%;
+    height: 60%;
+    background: #e8c397;
+    top: 0;
+    left: 0;
+    z-index: 4;
+    clip-path: polygon(0 0, 50% 100%, 100% 0);
+    transform-origin: top;
+    transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
+}
+
+/* Split Heart Seal Styling */
+/* Realistic 3D Wax Seal Styling */
+.wax-seal {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 50px;
+    /* Resized for mobile */
+    height: 50px;
+    z-index: 10;
+    pointer-events: auto;
+    cursor: pointer;
+    transform-style: preserve-3d;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.seal-half {
+    position: absolute;
+    width: 25px;
+    /* Resized */
+    height: 50px;
+    background: radial-gradient(circle, #ff4757 60%, #b33939 100%);
+    transition: all 0.5s cubic-bezier(0.4, 0.3, 0.2, 1);
+    overflow: hidden;
     display: flex;
     align-items: center;
-    justify-content: center;
-    z-index: 2;
-    border: 2px solid #d4b896;
 }
 
-.envelope-decoration {
-    text-align: center;
-    z-index: 5;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
+.seal-half.left {
+    left: 0;
+    border-radius: 48% 0 0 52%;
+    justify-content: flex-end;
 }
 
-.heart-seal {
-    font-size: 2.5rem;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    animation: heartBeat 2s ease-in-out infinite;
-    z-index: 15;
-    /* Ensure it stays above flap initially */
+.seal-half.right {
+    right: 0;
+    border-radius: 0 50% 50% 0;
+    justify-content: flex-start;
+}
+
+/* Embossed Heart Shape */
+.heart-shape {
     position: relative;
-    /* Ensure z-index works */
+    width: 20px;
+    /* Resized */
+    height: 20px;
+    background-color: transparent;
+    border-radius: 50% 50% 0 0;
 }
 
-@keyframes heartBeat {
-
-    0%,
-    100% {
-        transform: scale(1);
-    }
-
-    50% {
-        transform: scale(1.15);
-    }
-}
-
-/* 3D Envelope Flap */
-.envelope-flap {
+.heart-shape::before,
+.heart-shape::after {
+    content: "";
     position: absolute;
-    top: 0;
-    left: 50%;
-    width: 100%;
-    height: 100%;
-    transform: translateX(-50%);
-    transform-style: preserve-3d;
-    transform-origin: top center;
-    transition: transform 0.7s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-    z-index: 10;
+    width: 10px;
+    /* Resized */
+    height: 18px;
+    background: #ff4757;
+    border-radius: 10px 10px 0 0;
+    box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.4);
+    /* The "Pressed In" Look */
 }
 
-.flap-front {
+.heart-shape::before {
+    left: 10px;
+    transform: rotate(-45deg);
+    transform-origin: 0 100%;
+}
+
+.heart-shape::after {
+    left: 0;
+    transform: rotate(45deg);
+    transform-origin: 100% 100%;
+}
+
+.seal-half.left .heart-shape {
+    transform: translateX(10px);
+}
+
+.seal-half.right .heart-shape {
+    transform: translateX(-10px);
+}
+
+/* Irregular edge details */
+.wax-seal::before {
+    content: "";
     position: absolute;
-    width: 0;
-    height: 0;
-    border-left: min(160px, 43vw) solid transparent;
-    border-right: min(160px, 43vw) solid transparent;
-    border-top: min(115px, 34vw) solid #e8c397;
-    border-radius: 50% 50% 0 0 / 40% 40% 0 0;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.15);
-    z-index: 3;
+    width: 105%;
+    height: 105%;
+    border-radius: 48% 52% 50% 50%;
+    background: rgba(179, 57, 57, 0.3);
+    z-index: -1;
+    filter: blur(2px);
 }
 
-.flap-back {
-    position: absolute;
-    width: 0;
-    height: 0;
-    border-left: min(160px, 43vw) solid transparent;
-    border-right: min(160px, 43vw) solid transparent;
-    border-top: min(115px, 34vw) solid #d4b896;
-    border-radius: 50% 50% 0 0 / 40% 40% 0 0;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%) rotateY(180deg);
-    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.2);
-    z-index: 2;
-    backface-visibility: hidden;
-}
-
-/* Envelope opened state */
-.envelope-3d.envelope-open .envelope-flap {
-    transform: rotateX(180deg);
+.envelope-wrapper:hover {
+    transform: scale(1.03) rotateX(5deg);
 }
 
 /* Letter Wrapper - STATE 1: Envelope Context */
 .letter-wrapper {
     position: absolute;
     top: 5px;
-    /* Stay inside envelope visually */
     left: 50%;
     transform: translateX(-50%);
     width: 95%;
-    /* Responsive width within envelope */
-    height: 90%;
-    z-index: 2;
-    /* Between front face and flap */
+    /* Hugging inside */
+    height: 85%;
+    z-index: 1;
+    /* Inside the pocket */
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
     transition: opacity 0.3s ease;
+    transform-style: preserve-3d;
 }
 
 /* Letter Wrapper - STATE 2: Reading Mode (Activated after animation) */
@@ -765,16 +914,20 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     position: fixed;
     top: 50%;
     left: 50%;
-    width: min(90vw, 520px);
+    width: 95%;
+    /* Responsive width */
+    max-width: 520px;
     height: auto;
     max-height: 85vh;
-    transform: translate(-50%, -50%) !important;
-    z-index: 999;
+    transform: translate(-50%, -50%);
+    z-index: 2000;
+    /* High z-index to clear all particles */
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
     display: flex;
     flex-direction: column;
+    perspective: 1000px;
 }
 
 .letter-wrapper.letter-visible {
@@ -783,48 +936,37 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
 }
 
 /* Letter Content */
-/* Enhanced Realistic Paper */
+/* Enhanced Realistic Paper with parchment texture */
 .letter {
     width: 100%;
     height: 100%;
     background-color: #fdfaf3;
-    /* Cream background */
-
-    /* Notebook Paper Pattern */
     background-image:
+        /* Parchment texture (noise) */
+        url("https://www.transparenttextures.com/patterns/natural-paper.png"),
         /* Red left margin line */
-        linear-gradient(90deg, transparent 59px, #ff9ca6 59px, #ff9ca6 60px, transparent 60px),
+        linear-gradient(90deg, transparent 59px, rgba(255, 156, 166, 0.5) 59px, rgba(255, 156, 166, 0.5) 60px, transparent 60px),
         /* Blue horizontal lines */
-        linear-gradient(transparent 1.7rem, #e4eff8 1.7rem, #e4eff8 1.8rem, transparent 1.8rem);
-
-    background-size: 100% 1.8rem;
-    /* Matches line-height */
+        linear-gradient(transparent 1.7rem, rgba(228, 239, 248, 0.8) 1.7rem, rgba(228, 239, 248, 0.8) 1.8rem, transparent 1.8rem);
+    background-size: auto, 100% 1.8rem, 100% 1.8rem;
     background-attachment: local;
-
     line-height: 1.8rem;
-    /* Strictly sync with background-size */
-
-    padding: 0 40px 0 70px !important;
-    /* Top/Bottom handled by flex/margins to align with lines, Left allows for margin */
-    /* Note: "padding-top" inside text-content might need fine-tuning to land text ON lines */
-
+    padding: clamp(1.5rem, 5vw, 2.5rem) clamp(20px, 5vw, 40px) 1.5rem clamp(50px, 8vw, 75px) !important;
     box-shadow:
-        0 2px 5px rgba(0, 0, 0, 0.05),
-        inset 0 0 40px rgba(232, 195, 151, 0.1);
-    /* Subtle depth */
+        0 8px 30px rgba(0, 0, 0, 0.2),
+        inset 0 0 60px rgba(232, 195, 151, 0.2);
     border: 1px solid #d4b896;
-
+    border-radius: 4px;
     position: relative;
     font-family: 'Dancing Script', cursive;
     color: #2c2c2c;
-    font-size: 1.35rem;
-    /* Adjust to fit lines nicely */
-
+    font-size: clamp(14px, 4vw, 18px);
+    /* Fluid typography */
     display: flex;
     flex-direction: column;
     text-align: left;
-    overflow: hidden;
-    /* Prevent scrollbars inside the paper during animation */
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 /* Header Spacer to push Dear... down to a line */
@@ -836,7 +978,7 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
 }
 
 .letter-header h1 {
-    font-size: 1.5rem;
+    font-size: clamp(1.2rem, 5vw, 1.5rem);
     font-weight: 700;
     margin: 0;
     padding: 0;
@@ -1067,32 +1209,43 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
 /* --- Scene 4: Finale (Cake) --- */
 #scene-finale {
     background: #252432;
-    /* Match cake.html background */
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
+    overflow: hidden;
+    padding-top: 50vh;
+    /* Shift content slightly downwards */
 }
 
 /* Container for SVG to ensure it centers nicely */
 .cake-container {
     position: relative;
-    width: min(200px, 80vw);
-    /* Responsive width */
-    height: auto;
-    aspect-ratio: 2/5;
     display: flex;
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
-    /* This ensures candle absolute position is relative to THIS box */
-    max-width: 200px;
+    width: 100%;
+    max-width: 300px;
+    margin: 0 auto;
+}
+
+.cake-alignment-box {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    height: auto;
 }
 
 /* The SVG itself */
 #cake {
     display: block;
     width: 100%;
-    height: 100%;
-    /* Reset margins so it sits flush in the container */
-    margin: 0;
+    height: auto;
+    max-height: 80vh;
+    margin-top: -400px;
+    padding: 0;
 }
 
 /* The Candle */
@@ -1100,22 +1253,16 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     background: #ffffff;
     border-radius: 10px;
     position: absolute;
-    /* 1. Reset standard centering */
-    top: 0;
+    bottom: 90px;
+    /* Align to the top edge of the cropped cake box */
     left: 50%;
-    margin-left: -2.5px;
-    /* Half of width (5px) to center */
-
-    /* 2. Manual vertical align to sit on top of the cake SVG */
-    margin-top: 375px;
-
-    width: 5px;
-    height: 35px;
-    z-index: 50;
+    margin-top: 10px;
+    /* Dipping into the cream layer */
+    width: 6px;
+    height: 40px;
+    z-index: 100;
+    /* Ensure it's above all SVG layers */
     cursor: pointer;
-
-    /* 3. Hide it initially (shifted up) */
-    transform: translateY(-300px);
     opacity: 0;
 }
 
@@ -1125,16 +1272,14 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     opacity: 1;
 }
 
-
-
 @keyframes dropInCandle {
     0% {
-        transform: translateY(-300px);
+        transform: translateX(-50%) translateY(-100px);
         opacity: 0;
     }
 
     100% {
-        transform: translateY(0);
+        transform: translateX(-50%);
         opacity: 1;
     }
 }
@@ -1143,11 +1288,11 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
 .fire {
     border-radius: 100%;
     position: absolute;
-    top: -20px;
+    top: -22px;
     left: 50%;
-    margin-left: -3.33px;
-    width: 6.66px;
-    height: 18px;
+    transform: translateX(-50%);
+    width: 8px;
+    height: 20px;
 }
 
 .fire:nth-child(1) {
@@ -1176,18 +1321,22 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     100% {
         background: rgba(254, 248, 97, 0.5);
         box-shadow: 0 0 40px 10px rgba(248, 233, 209, 0.2);
-        transform: translateY(0) scale(1);
+        transform: translateY(0) scale(1) translateX(-50%);
     }
 
     50% {
         background: rgba(255, 50, 0, 0.1);
         box-shadow: 0 0 40px 20px rgba(248, 233, 209, 0.2);
-        transform: translateY(-20px) scale(0);
+        transform: translateY(-20px) scale(0) translateX(-50%);
     }
 }
 
 .candle.out .fire {
     display: none;
+}
+
+.candle-instruction {
+    font-size: clamp(1rem, 4vw, 1.5rem) !important;
 }
 
 .finale-text {
@@ -1198,6 +1347,7 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     opacity: 0;
     transition: opacity 1s;
     pointer-events: none;
+    font-size: clamp(1rem, 4vw, 1.5rem);
 }
 
 .finale-text.visible {
@@ -1207,7 +1357,8 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
 
 .finale-text h1 {
     font-family: 'Amethysta', serif;
-    font-size: clamp(2rem, 5vw, 3rem);
+    font-size: 2.5em;
+    /* Scaled relative to finale-text */
     color: #ffd700;
     text-shadow: 0 0 10px #ffae34;
 }
@@ -1353,4 +1504,42 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     .letter {
         max-height: 85vh;
     }
+}
+
+/* --- Memory Scene Close Button --- */
+.memory-close-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    border-radius: 25px;
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
+    text-decoration: none;
+    user-select: none;
+}
+
+.memory-close-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1);
+}
+
+.memory-close-btn:active {
+    transform: scale(0.98);
+}
+
+.memory-close-btn i {
+    margin-right: 8px;
 }
