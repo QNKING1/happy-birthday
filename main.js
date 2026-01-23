@@ -1647,7 +1647,7 @@ function initMemoryScene() {
 
 
     const textureLoader = new THREE.TextureLoader();
-    const placeholderImages = ['img1.jpg', 'img2.jpg', 'img3.jpg', 'img4.jpg', 'img5.jpg', 'img6.jpg', 'img7.jpg'];
+    const placeholderImages = ['./img1.jpg', './img2.jpg', './img3.jpg', './img4.jpg', './img5.jpg', './img6.jpg', './img7.jpg'];
     const textures = placeholderImages.map(url => textureLoader.load(url));
 
     const geometry = new THREE.PlaneGeometry(cardWidthBase, cardHeightBase);
@@ -2459,3 +2459,4 @@ window.addEventListener('load', () => {
     initLetterInteraction();
     // initFinale(); // <-- Removed: We only want this when the scene starts
 });
+
