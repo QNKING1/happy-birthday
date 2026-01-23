@@ -1,3 +1,259 @@
+// ===== BIRTHDAY LOADING SCREEN MANAGER =====
+class BirthdayLoadingScreen {
+    constructor() {
+        this.container = document.getElementById('loading-screen');
+        this.canvas = document.getElementById('loading-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.percentText = document.getElementById('loading-percent');
+        this.giftBox = document.querySelector('.gift-box');
+        this.giftLid = document.querySelector('.gift-lid');
+
+        this.particles = [];
+        this.floatingElements = [];
+        this.progress = 0;
+        this.isComplete = false;
+
+        this.init();
+    }
+
+    init() {
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+
+        // Start background loop
+        this.createInitialFloatingElements();
+        this.animate();
+
+        // Start loading simulation
+        this.startLoadingSimulation();
+
+        // Initial gift box float animation
+        gsap.to(this.giftBox, {
+            y: -20,
+            rotation: 2,
+            duration: 1.5,
+            repeat: -1,
+            yoyo: true,
+            ease: "sine.inOut"
+        });
+    }
+
+    resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+    }
+
+    createInitialFloatingElements() {
+        for (let i = 0; i < 15; i++) {
+            this.floatingElements.push(new FloatingElement(this.canvas.width, this.canvas.height));
+        }
+    }
+
+    startLoadingSimulation() {
+        const duration = 4; // 4 seconds loading
+        const obj = { val: 0 };
+
+        gsap.to(obj, {
+            val: 100,
+            duration: duration,
+            ease: "none",
+            onUpdate: () => {
+                this.progress = obj.val;
+                this.percentText.textContent = Math.floor(this.progress);
+
+                // Occasionally spawn specialized particles based on progress
+                if (Math.random() < 0.1) {
+                    this.spawnProgressParticle();
+                }
+            },
+            onComplete: () => this.completeLoading()
+        });
+    }
+
+    spawnProgressParticle() {
+        const x = this.canvas.width / 2 + (Math.random() - 0.5) * 100;
+        const y = this.canvas.height / 2 + 50;
+        this.particles.push(new Particle(x, y, true));
+    }
+
+    completeLoading() {
+        this.isComplete = true;
+
+        // Premium GSAP Sequence for Gift Opening
+        const tl = gsap.timeline();
+
+        tl.to(this.giftBox, {
+            scale: 1.2,
+            rotation: 0,
+            duration: 0.5,
+            ease: "back.out(1.7)"
+        })
+            .to(this.giftLid, {
+                y: -150,
+                rotation: 15,
+                opacity: 0,
+                duration: 0.8,
+                ease: "power2.out"
+            }, "-=0.1")
+            .call(() => {
+                this.createExplosion();
+                if (audioManager) audioManager.play('magic');
+            })
+            .to(this.container, {
+                opacity: 0,
+                duration: 1.2,
+                delay: 1,
+                ease: "power2.inOut",
+                onComplete: () => {
+                    this.container.style.visibility = 'hidden';
+                    // Show main content
+                    const mainContent = document.getElementById('main-content');
+                    if (mainContent) mainContent.classList.remove('hidden');
+
+                    // Trigger intro text reveal
+                    if (window.storyApp) {
+                        window.storyApp.revealIntroText();
+                    }
+                }
+            });
+    }
+
+    createExplosion() {
+        const x = this.canvas.width / 2;
+        const y = this.canvas.height / 2;
+
+        for (let i = 0; i < 150; i++) {
+            this.particles.push(new Particle(x, y, false));
+        }
+    }
+
+    animate() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Update & Draw Floating Background Elements
+        this.floatingElements.forEach((el, index) => {
+            el.update(this.canvas.height);
+            el.draw(this.ctx);
+        });
+
+        // Update & Draw Particles
+        this.particles.forEach((p, index) => {
+            p.update();
+            p.draw(this.ctx);
+            if (p.alpha <= 0) {
+                this.particles.splice(index, 1);
+            }
+        });
+
+        if (!this.isComplete || this.particles.length > 0) {
+            requestAnimationFrame(() => this.animate());
+        }
+    }
+}
+
+class FloatingElement {
+    constructor(canvasWidth, canvasHeight) {
+        this.reset(canvasWidth, canvasHeight);
+        this.y = Math.random() * canvasHeight; // Start at random height initially
+    }
+
+    reset(canvasWidth, canvasHeight) {
+        this.x = Math.random() * canvasWidth;
+        this.y = canvasHeight + 50;
+        this.size = 10 + Math.random() * 20;
+        this.speed = 0.5 + Math.random() * 1.5;
+        this.type = Math.random() > 0.5 ? 'heart' : 'balloon';
+        this.color = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff'][Math.floor(Math.random() * 5)];
+        this.opacity = 0.1 + Math.random() * 0.2;
+        this.angle = Math.random() * Math.PI * 2;
+        this.wobble = Math.random() * 2;
+    }
+
+    update(canvasHeight) {
+        this.y -= this.speed;
+        this.angle += 0.02;
+
+        if (this.y < -50) {
+            this.y = canvasHeight + 50;
+        }
+    }
+
+    draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = this.opacity;
+        ctx.fillStyle = this.color;
+        ctx.translate(this.x + Math.sin(this.angle) * 10, this.y);
+
+        if (this.type === 'heart') {
+            const s = this.size / 20;
+            ctx.scale(s, s);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.bezierCurveTo(-10, -10, -20, 5, 0, 15);
+            ctx.bezierCurveTo(20, 5, 10, -10, 0, 0);
+            ctx.fill();
+        } else {
+            ctx.beginPath();
+            ctx.ellipse(0, 0, this.size * 0.8, this.size, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Balloon string
+            ctx.beginPath();
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = 1;
+            ctx.moveTo(0, this.size);
+            ctx.lineTo(Math.sin(this.angle) * 5, this.size + 15);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+}
+
+class Particle {
+    constructor(x, y, isRise = false) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * (isRise ? 2 : 15);
+        this.vy = isRise ? -(Math.random() * 3 + 2) : (Math.random() - 0.5) * 15 - 5;
+        this.size = Math.random() * 6 + 2;
+        this.color = ['#ff4d94', '#ffea00', '#48dbfb', '#ffffff', '#ff9ff3'][Math.floor(Math.random() * 5)];
+        this.alpha = 1;
+        this.gravity = isRise ? 0 : 0.25;
+        this.rotation = Math.random() * Math.PI * 2;
+        this.rotationSpeed = (Math.random() - 0.5) * 0.2;
+        this.decay = 0.01 + Math.random() * 0.02;
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy += this.gravity;
+        this.alpha -= this.decay;
+        this.rotation += this.rotationSpeed;
+    }
+
+    draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = this.alpha;
+        ctx.fillStyle = this.color;
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+
+        if (Math.random() > 0.5) {
+            ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+        } else {
+            ctx.beginPath();
+            ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+}
+
+// Initialize loading screen when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    window.loadingScreen = new BirthdayLoadingScreen();
+});
+
 // --- Cinematic Effects Manager (God Rays, Parallax, Bokehs) ---
 // --- Audio Manager ---
 class AudioManager {
@@ -350,8 +606,8 @@ class StoryManager {
         // Setup cinematic effects for intro scene
         this.cinemaEffectsManager = new CinematicEffectsManager();
 
-        // Reveal Intro Text with GSAP Stagger
-        this.revealIntroText();
+        // Reveal Intro Text is now called via the Pre-loader Lifecycle in window.load
+        // this.revealIntroText();
     }
 
     revealIntroText() {
@@ -486,14 +742,31 @@ class StoryManager {
                 icon.classList.remove('fa-volume-mute');
                 icon.classList.add('fa-volume-up');
             }
-        }).catch(e => console.log("Audio play failed:", e));
+        }).catch(e => {
+            console.log("Audio play failed, will retry on interaction:", e);
+            // Browser might block it, we'll try again on the next user click
+            const playOnInteraction = () => {
+                this.bgMusic.play().then(() => {
+                    this.isMusicPlaying = true;
+                    const icon = document.getElementById('music-icon');
+                    if (icon) {
+                        icon.classList.remove('fa-volume-mute');
+                        icon.classList.add('fa-volume-up');
+                    }
+                    document.removeEventListener('click', playOnInteraction);
+                    document.removeEventListener('touchstart', playOnInteraction);
+                }).catch(() => { });
+            };
+            document.addEventListener('click', playOnInteraction);
+            document.addEventListener('touchstart', playOnInteraction);
+        });
     }
 
     startExperience() {
         // Play Music via shared method
         this.playMusic();
 
-        // FAISAFE: Guaranteed button show after 8 seconds
+        // FAISAFE: Guaranteed button show after 9 seconds (8s animation + 1s delay)
         // Moved here so it runs INDEPENDENTLY of the animation success/failure
         setTimeout(() => {
             const nextBtn = document.getElementById('to-memory-btn');
@@ -503,7 +776,7 @@ class StoryManager {
                 nextBtn.style.opacity = '1';
                 nextBtn.style.pointerEvents = 'auto';
             }
-        }, 8000);
+        }, 9000);
 
         // Start petals after user clicked Start
         if (this.cinemaEffectsManager && typeof this.cinemaEffectsManager.startPetalLoop === 'function') {
@@ -517,8 +790,11 @@ class StoryManager {
 
                 // Start Flower Animation
                 initFlowerAnimation(() => {
-                    const nextBtn = document.getElementById('to-memory-btn');
-                    if (nextBtn) nextBtn.classList.add('visible');
+                    // Add 1 second delay after flower animation completes
+                    setTimeout(() => {
+                        const nextBtn = document.getElementById('to-memory-btn');
+                        if (nextBtn) nextBtn.classList.add('visible');
+                    }, 1000);
                 });
             }
         });
@@ -1034,15 +1310,16 @@ class InteractiveMemoryManager {
 
         gsap.to(memory.rotation, {
             x: 0,
-            y: 0.3, // Slight aesthetic tilt
+            y: 0.1, // Reduced tilt for better readability
             z: 0,
             duration: this.zoomDuration,
             ease: 'power2.inOut'
         });
 
-        // Bring focused card visually forward: full opacity + slight scale
+        // Bring focused card visually forward: full opacity + preserve aspect ratio
+        // Original card dimensions are 24x34, so we scale proportionally to maintain aspect ratio
         gsap.to(memory.material, { opacity: 1.0, duration: this.zoomDuration, ease: 'power2.inOut' });
-        gsap.to(memory.scale, { x: 1.08, y: 1.08, z: 1.08, duration: this.zoomDuration, ease: 'power2.inOut' });
+        gsap.to(memory.scale, { x: 1.0, y: 1.0, z: 1.0, duration: this.zoomDuration, ease: 'power2.inOut' });
 
         // Dim other cards to create a subtle overlay effect without stopping their motion
         this.memories.forEach(mem => {
@@ -1368,16 +1645,19 @@ function initMemoryScene() {
     const floatGroup = new THREE.Group();
     scene.add(floatGroup);
 
+
     const textureLoader = new THREE.TextureLoader();
-    const placeholderImages = ['img1.jpg', 'img2.jpg'];
+    const placeholderImages = ['img1.jpg', 'img2.jpg', 'img3.jpg', 'img4.jpg', 'img5.jpg', 'img6.jpg', 'img7.jpg'];
     const textures = placeholderImages.map(url => textureLoader.load(url));
 
     const geometry = new THREE.PlaneGeometry(cardWidthBase, cardHeightBase);
 
     // Cards create with responsive sizing and standard material
     for (let i = 0; i < cardCount; i++) {
+        const texture = textures[i % textures.length];
+
         const material = new THREE.MeshStandardMaterial({
-            map: textures[i % textures.length],
+            map: texture,
             side: THREE.DoubleSide,
             transparent: true,
             opacity: 0.8,
@@ -1402,11 +1682,13 @@ function initMemoryScene() {
             originalRot: mesh.rotation.clone(),
             phaseX: Math.random() * Math.PI * 2,
             phaseY: Math.random() * Math.PI * 2,
-            floatSpeed: 0.5 + Math.random() * 0.5
+            floatSpeed: 0.5 + Math.random() * 0.5,
+            texture: texture // Store texture reference to access image dimensions later
         };
 
         floatGroup.add(mesh);
     }
+
 
     // Interaction Variables & Drag-to-Rotate
     let isDragging = false;
