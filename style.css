@@ -20,6 +20,255 @@ body {
     left: 0;
 }
 
+/* ===== BIRTHDAY LOADING SCREEN ===== */
+
+#loading-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, #2e1437 0%, #130a1a 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 1.2s cubic-bezier(0.7, 0, 0.3, 1), visibility 1.2s;
+    overflow: hidden;
+}
+
+#loading-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+#loading-screen.fade-out {
+    opacity: 0;
+    visibility: hidden;
+}
+
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.loading-container {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 60px;
+    z-index: 10;
+}
+
+.loading-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    padding: 25px 40px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+}
+
+/* ===== GIFT BOX STYLES ===== */
+
+.gift-box {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    animation: shake 0.5s ease-in-out infinite, glow 2s ease-in-out infinite;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    25% { transform: translateY(-5px) rotate(-1deg); }
+    75% { transform: translateY(-5px) rotate(1deg); }
+}
+
+@keyframes glow {
+    0%, 100% { filter: drop-shadow(0 0 5px rgba(255, 182, 193, 0.5)); }
+    50% { filter: drop-shadow(0 0 20px rgba(255, 182, 193, 0.9)); }
+}
+
+/* Gift Box Body */
+.gift-body {
+    position: absolute;
+    width: 100%;
+    height: 75%;
+    bottom: 0;
+    background: linear-gradient(135deg, #ff4d94 0%, #ff0066 100%);
+    border-radius: 12px;
+    box-shadow: 
+        inset 0 4px 8px rgba(255, 255, 255, 0.3),
+        0 15px 45px rgba(255, 0, 102, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Gift Lid */
+.gift-lid {
+    position: absolute;
+    width: 110%;
+    height: 45px;
+    top: 5%;
+    left: -5%;
+    background: linear-gradient(135deg, #ffea00 0%, #ffcc00 100%);
+    border-radius: 12px;
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transform-origin: center bottom;
+    z-index: 5;
+}
+
+@keyframes lidOpen {
+    0% { transform: rotateX(0deg); opacity: 1; }
+    100% { transform: rotateX(-90deg) translateY(-30px); opacity: 0.3; }
+}
+
+/* Ribbons */
+.ribbon {
+    position: absolute;
+    background: linear-gradient(90deg, #ffc0cb 0%, #ff69b4 50%, #ffc0cb 100%);
+    animation: ribbonGlow 2s ease-in-out infinite;
+}
+
+@keyframes ribbonGlow {
+    0%, 100% { filter: drop-shadow(0 0 3px rgba(255, 105, 180, 0.6)); }
+    50% { filter: drop-shadow(0 0 10px rgba(255, 105, 180, 1)); }
+}
+
+.ribbon-vertical {
+    width: 15px;
+    height: 100%;
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%);
+}
+
+.ribbon-horizontal {
+    width: 100%;
+    height: 15px;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+}
+
+/* Gift Bow */
+.gift-bow {
+    position: absolute;
+    top: 5%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 50px;
+    height: 30px;
+    animation: bowBounce 1.5s ease-in-out infinite;
+}
+
+@keyframes bowBounce {
+    0%, 100% { transform: translateX(-50%) translateY(0px); }
+    50% { transform: translateX(-50%) translateY(-8px); }
+}
+
+.bow-part {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: #ff69b4;
+    border-radius: 50%;
+    top: 5px;
+    box-shadow: 0 0 10px rgba(255, 105, 180, 0.8);
+}
+
+.bow-part:first-child { left: 0; }
+.bow-part:last-child { right: 0; }
+
+/* ===== LOADING TEXT & PERCENTAGE ===== */
+
+.loading-text {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 500;
+    color: #fff;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    animation: textPulse 2s ease-in-out infinite;
+}
+
+@keyframes textPulse {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 1; }
+}
+
+.loading-percentage {
+    font-size: 32px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    min-width: 100px;
+    text-align: center;
+}
+
+/* ===== SPARKLES/CONFETTI ===== */
+
+#confetti-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10000;
+}
+
+.sparkle {
+    position: fixed;
+    pointer-events: none;
+    animation: sparkleAnimation 1s ease-out forwards;
+}
+
+@keyframes sparkleAnimation {
+    0% {
+        opacity: 1;
+        transform: translate(0, 0) scale(1) rotate(0deg);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(var(--tx), var(--ty)) scale(0) rotate(360deg);
+    }
+}
+
+/* ===== MAIN CONTENT (Hidden During Loading) ===== */
+
+#main-content {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.8s ease-out, visibility 0.8s ease-out;
+    z-index: 100;
+}
+
+#main-content.hidden {
+    opacity: 0;
+    visibility: hidden;
+    z-index: -1;
+}
+
 html,
 body {
     -webkit-touch-callout: none;
@@ -567,9 +816,9 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
 
 .next-chapter-btn {
     position: absolute;
-    bottom: clamp(20px, 5vw, 30px);
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translate(-50%, -50%);
     padding: clamp(10px, 2vw, 12px) clamp(25px, 4vw, 30px);
     background: rgba(255, 71, 87, 0.1);
     /* Subtle transparent red */
@@ -597,7 +846,7 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
     background: #ff4757;
     color: white;
     box-shadow: 0 0 20px rgba(255, 71, 87, 0.6);
-    transform: translateX(-50%) translateY(-3px);
+    transform: translate(-50%, -50%) scale(1.05);
 }
 
 .next-chapter-btn.visible {
@@ -610,12 +859,12 @@ g[id^="BudGroup"] g[id^="BudGroup"] g[id^="Bud"],
 @keyframes fadeInBtn {
     from {
         opacity: 0;
-        transform: translateX(-50%) translateY(20px);
+        transform: translate(-50%, -50%) scale(0.8);
     }
 
     to {
         opacity: 1;
-        transform: translateX(-50%) translateY(0);
+        transform: translate(-50%, -50%) scale(1);
     }
 }
 
