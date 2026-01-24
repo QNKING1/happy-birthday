@@ -5,6 +5,7 @@ class BirthdayLoadingScreen {
         this.canvas = document.getElementById('loading-canvas');
         this.ctx = this.canvas.getContext('2d');
         this.percentText = document.getElementById('loading-percent');
+        this.loadingStatusText = document.querySelector('.loading-text p');
         this.giftBox = document.querySelector('.gift-box');
         this.giftLid = document.querySelector('.gift-lid');
 
@@ -12,8 +13,50 @@ class BirthdayLoadingScreen {
         this.floatingElements = [];
         this.progress = 0;
         this.isComplete = false;
+        this.priority1Loaded = false;
 
+        // Initialize Loading Manager
+        this.manager = new THREE.LoadingManager();
+        this.textureLoader = new THREE.TextureLoader(this.manager);
+
+        this.setupManager();
         this.init();
+    }
+
+    setupManager() {
+        // Fail-Safe Timeout: 12 seconds
+        this.failSafeTimeout = setTimeout(() => {
+            if (!this.priority1Loaded) {
+                console.warn("Loading Fail-Safe triggered after 12s");
+                this.completeLoading();
+            }
+        }, 12000);
+
+        this.manager.onProgress = (url, itemsLoaded, itemsTotal) => {
+            this.progress = (itemsLoaded / itemsTotal) * 100;
+            const displayProgress = Math.floor(this.progress);
+            this.percentText.textContent = displayProgress;
+
+            if (this.loadingStatusText) {
+                this.loadingStatusText.textContent = `Unwrapping the magic... ${displayProgress}%`;
+            }
+
+            // Occasionally spawn specialized particles based on progress
+            if (Math.random() < 0.1) {
+                this.spawnProgressParticle();
+            }
+        };
+
+        this.manager.onLoad = () => {
+            clearTimeout(this.failSafeTimeout);
+            if (!this.priority1Loaded) {
+                this.completeLoading();
+            }
+        };
+
+        this.manager.onError = (url) => {
+            console.error('There was an error loading ' + url);
+        };
     }
 
     init() {
@@ -24,8 +67,8 @@ class BirthdayLoadingScreen {
         this.createInitialFloatingElements();
         this.animate();
 
-        // Start loading simulation
-        this.startLoadingSimulation();
+        // Start REAL asset loading
+        this.loadAssets();
 
         // Initial gift box float animation
         gsap.to(this.giftBox, {
@@ -36,6 +79,33 @@ class BirthdayLoadingScreen {
             yoyo: true,
             ease: "sine.inOut"
         });
+    }
+
+    loadAssets() {
+        // Priority 1: Core Assets (Introduction)
+        // These are items that MUST be loaded before we show the "Click to Begin"
+        // Since this is a client-side app with mostly local files, we'll pre-load key textures
+        const priority1Assets = [
+            'paper-rustle.mp3',
+            'magic-whoosh.mp3',
+            'blow-out.mp3'
+        ];
+
+        // Background Priority: Memory Cloud textures
+        const memoryImages = ['img1.jpg', 'img2.jpg', 'img3.jpg', 'img4.jpg', 'img5.jpg', 'img6.jpg', 'img7.jpg'];
+
+        // We load them all through the manager
+        // But the 'onLoad' logic will trigger when the manager thinks everything is done.
+        // If we wanted true "background" we would use a separate manager, but the user 
+        // asked for a single LoadingManager with a timeout.
+
+        // Load textures
+        memoryImages.forEach(img => {
+            this.textureLoader.load(img);
+        });
+
+        // For non-Three.js assets, we can manually increment/decrement or just let them be
+        // THREE.LoadingManager tracks ANY loader that uses it.
     }
 
     resize() {
@@ -49,27 +119,6 @@ class BirthdayLoadingScreen {
         }
     }
 
-    startLoadingSimulation() {
-        const duration = 4; // 4 seconds loading
-        const obj = { val: 0 };
-
-        gsap.to(obj, {
-            val: 100,
-            duration: duration,
-            ease: "none",
-            onUpdate: () => {
-                this.progress = obj.val;
-                this.percentText.textContent = Math.floor(this.progress);
-
-                // Occasionally spawn specialized particles based on progress
-                if (Math.random() < 0.1) {
-                    this.spawnProgressParticle();
-                }
-            },
-            onComplete: () => this.completeLoading()
-        });
-    }
-
     spawnProgressParticle() {
         const x = this.canvas.width / 2 + (Math.random() - 0.5) * 100;
         const y = this.canvas.height / 2 + 50;
@@ -77,6 +126,8 @@ class BirthdayLoadingScreen {
     }
 
     completeLoading() {
+        if (this.priority1Loaded) return;
+        this.priority1Loaded = true;
         this.isComplete = true;
 
         // Premium GSAP Sequence for Gift Opening
@@ -110,7 +161,7 @@ class BirthdayLoadingScreen {
                     const mainContent = document.getElementById('main-content');
                     if (mainContent) mainContent.classList.remove('hidden');
 
-                    // Trigger intro text reveal
+                    // Trigger intro text reveal and enable start button
                     if (window.storyApp) {
                         window.storyApp.revealIntroText();
                     }
@@ -251,7 +302,14 @@ class Particle {
 
 // Initialize loading screen when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    window.loadingScreen = new BirthdayLoadingScreen();
+    // We wait for window.load for the StoryManager, but loading screen can start early
+    if (window.THREE && window.gsap) {
+        window.loadingScreen = new BirthdayLoadingScreen();
+    } else {
+        console.error("Critical libraries (THREE or GSAP) not detected. Loading halted.");
+        const status = document.querySelector('.loading-text p');
+        if (status) status.textContent = "Error: Magic libraries missing. Please refresh.";
+    }
 });
 
 // --- Cinematic Effects Manager (God Rays, Parallax, Bokehs) ---
@@ -630,12 +688,21 @@ class StoryManager {
             }
         );
 
-        // Also animate the start button slightly after the text
+        // Also animate the start button slightly after the text and enable it
         const startBtn = document.querySelector('.btn-start');
         if (startBtn) {
             gsap.fromTo(startBtn,
                 { y: 20, opacity: 0 },
-                { y: 0, opacity: 1, duration: 1, delay: 1.5, ease: 'power2.out' }
+                {
+                    y: 0,
+                    opacity: 1,
+                    duration: 1,
+                    delay: 1.5,
+                    ease: 'power2.out',
+                    onComplete: () => {
+                        startBtn.style.pointerEvents = 'auto';
+                    }
+                }
             );
         }
     }
@@ -1576,6 +1643,10 @@ class InteractiveMemoryManager {
     }
 }
 
+// Memory Tracker State
+let viewedImages = new Set();
+const totalUniqueImages = 7;
+
 
 // --- Scene 2: Memory Cloud (Three.js) ---
 function initMemoryScene() {
@@ -1647,7 +1718,7 @@ function initMemoryScene() {
 
 
     const textureLoader = new THREE.TextureLoader();
-    const placeholderImages = ['./img1.jpg', './img2.jpg', './img3.jpg', './img4.jpg', './img5.jpg', './img6.jpg', './img7.jpg'];
+    const placeholderImages = ['img1.jpg', 'img2.jpg', 'img3.jpg', 'img4.jpg', 'img5.jpg', 'img6.jpg', 'img7.jpg'];
     const textures = placeholderImages.map(url => textureLoader.load(url));
 
     const geometry = new THREE.PlaneGeometry(cardWidthBase, cardHeightBase);
@@ -1888,6 +1959,47 @@ function initMemoryScene() {
                 gsap.to(obj.material.color, { r: 1, g: 1, b: 1, duration: 0.5 });
             }
         });
+
+        // --- Memory Tracking Logic ---
+        if (obj.userData.texture && obj.userData.texture.image) {
+            const imageUrl = obj.userData.texture.image.src;
+            if (!viewedImages.has(imageUrl)) {
+                viewedImages.add(imageUrl);
+                const counter = document.getElementById('memory-counter');
+                if (counter) {
+                    counter.innerText = `Memories Found: ${viewedImages.size}/7`;
+                }
+
+                // The Reveal Logic
+                if (viewedImages.size === totalUniqueImages) {
+                    const revealBtn = document.getElementById('to-letter-btn');
+                    if (revealBtn) {
+                        // Play Magic Whoosh
+                        audioManager.play('magic');
+
+                        // Fade in and Pulse
+                        gsap.to(revealBtn, {
+                            opacity: 1,
+                            duration: 1.5,
+                            ease: "power2.out",
+                            onStart: () => {
+                                revealBtn.style.pointerEvents = 'auto';
+                                revealBtn.classList.add('active'); // Triggers CSS pulse
+                            }
+                        });
+
+                        // Subtle notification in counter
+                        gsap.to('#memory-counter', {
+                            color: '#ff4757',
+                            scale: 1.1,
+                            duration: 0.5,
+                            yoyo: true,
+                            repeat: 1
+                        });
+                    }
+                }
+            }
+        }
 
         // 5. Scale & Opacity
         gsap.to(obj.scale, {
@@ -2452,11 +2564,12 @@ function initFinale() {
 window.initFinale = initFinale; // Expose for button interactions
 
 window.addEventListener('load', () => {
-    // Expose manager to window for debugging or easy access
-    window.storyApp = new StoryManager();
+    // Only initialize StoryManager if libraries are present
+    if (window.gsap && window.THREE) {
+        // Expose manager to window for debugging or easy access
+        window.storyApp = new StoryManager();
 
-    // Init scene specific listeners immediately (so they are ready when transitioned)
-    initLetterInteraction();
-    // initFinale(); // <-- Removed: We only want this when the scene starts
+        // Init scene specific listeners immediately (so they are ready when transitioned)
+        initLetterInteraction();
+    }
 });
-
