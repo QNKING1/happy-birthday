@@ -100,8 +100,8 @@ class BirthdayLoadingScreen {
         // asked for a single LoadingManager with a timeout.
 
         // Load textures
-        memoryImages.forEach(./img => {
-            this.textureLoader.load(./img);
+        memoryImages.forEach(img => {
+            this.textureLoader.load(img);
         });
 
         // For non-Three.js assets, we can manually increment/decrement or just let them be
@@ -2573,4 +2573,5 @@ window.addEventListener('load', () => {
         initLetterInteraction();
     }
 });
+
 
