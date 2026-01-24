@@ -60,7 +60,7 @@
 
     <!-- Global Background Elements -->
     <canvas id="bg-canvas"></canvas>
-    <audio id="bg-music" src="music.mp3" loop></audio>
+    <audio id="bg-music" src="music.mp3" preload="auto" loop></audio>
 
     <div class="music-control" id="music-toggle">
         <i class="fas fa-volume-mute" id="music-icon"></i>
@@ -671,7 +671,7 @@
                     </h1>
                     <h1 class="main">to you</h1>
                     <br>
-                    <button class="btn-start">Click to Begin</button>
+                    <button class="btn-start" style="pointer-events: none; opacity: 0;">Click to Begin</button>
                 </div>
 
                 <button class="next-chapter-btn" id="to-memory-btn">Next Chapter <i
@@ -684,6 +684,7 @@
                 <div class="memory-ui">
                     <h1>Memories in the Cloud</h1>
                     <p>Drag to explore the moments...</p>
+                    <div id="memory-counter">Memories Found: 0/7</div>
                     <button class="memory-btn" id="to-letter-btn">Read My Heart <i
                             class="fas fa-envelope-open-text"></i></button>
                 </div>
