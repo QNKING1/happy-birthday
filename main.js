@@ -92,7 +92,7 @@ class BirthdayLoadingScreen {
         ];
 
         // Background Priority: Memory Cloud textures
-        const memoryImages = ['img1.jpg', 'img2.jpg', 'img3.jpg', 'img4.jpg', 'img5.jpg', 'img6.jpg', 'img7.jpg'];
+        const memoryImages = ['./img1.jpg', './img2.jpg', './img3.jpg', './img4.jpg', './img5.jpg', './img6.jpg', './img7.jpg'];
 
         // We load them all through the manager
         // But the 'onLoad' logic will trigger when the manager thinks everything is done.
@@ -100,8 +100,8 @@ class BirthdayLoadingScreen {
         // asked for a single LoadingManager with a timeout.
 
         // Load textures
-        memoryImages.forEach(img => {
-            this.textureLoader.load(img);
+        memoryImages.forEach(./img => {
+            this.textureLoader.load(./img);
         });
 
         // For non-Three.js assets, we can manually increment/decrement or just let them be
@@ -1718,7 +1718,7 @@ function initMemoryScene() {
 
 
     const textureLoader = new THREE.TextureLoader();
-    const placeholderImages = ['img1.jpg', 'img2.jpg', 'img3.jpg', 'img4.jpg', 'img5.jpg', 'img6.jpg', 'img7.jpg'];
+    const placeholderImages = ['./img1.jpg', './img2.jpg', './img3.jpg', './img4.jpg', './img5.jpg', './img6.jpg', './img7.jpg'];
     const textures = placeholderImages.map(url => textureLoader.load(url));
 
     const geometry = new THREE.PlaneGeometry(cardWidthBase, cardHeightBase);
@@ -2573,3 +2573,4 @@ window.addEventListener('load', () => {
         initLetterInteraction();
     }
 });
+
